@@ -75,6 +75,17 @@ return [
         'usage' => [
             'store' => env('AI_USAGE_STORE'),
         ],
+
+        'moderation' => [
+            'threshold' => 0.8,
+            'action' => 'delete',
+            'mute_minutes' => 60,
+            'skip_admins' => true,
+            'warning' => 'This message breaks the rules of the group.',
+            'categories' => [
+                // 'offtopic' => 'Messages unrelated to PHP programming.',
+            ],
+        ],
     ],
 
     /*

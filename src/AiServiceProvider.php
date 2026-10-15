@@ -25,6 +25,8 @@ use LaraGram\Ai\Contracts\Agent;
 use LaraGram\Ai\Events\ToolApprovalRequested;
 use LaraGram\Ai\Telegram\AgentListen;
 use LaraGram\Ai\Telegram\Approvals;
+use LaraGram\Ai\Telegram\Payments;
+use LaraGram\Foundation\Bot\Events\RequestHandled;
 use LaraGram\Listening\Listener;
 
 class AiServiceProvider extends ServiceProvider
@@ -221,6 +223,8 @@ class AiServiceProvider extends ServiceProvider
     protected function registerTelegramFeatures(): void
     {
         Event::listen(ToolApprovalRequested::class, [Approvals::class, 'remember']);
+
+        Event::listen(RequestHandled::class, [Payments::class, 'handle']);
 
         if (! config('ai.telegram.listens', true) || ! $this->app->bound('listener')) {
             return;
