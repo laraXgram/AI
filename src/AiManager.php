@@ -1,0 +1,567 @@
+<?php
+
+namespace LaraGram\Ai;
+
+use LaraGram\Contracts\Events\Dispatcher;
+use LaraGram\Support\MultipleInstanceManager;
+use InvalidArgumentException;
+use LaraGram\Ai\Contracts\Agent;
+use LaraGram\Ai\Contracts\Providers\AudioProvider;
+use LaraGram\Ai\Contracts\Providers\ClassificationProvider;
+use LaraGram\Ai\Contracts\Providers\EmbeddingProvider;
+use LaraGram\Ai\Contracts\Providers\FileProvider;
+use LaraGram\Ai\Contracts\Providers\ImageProvider;
+use LaraGram\Ai\Contracts\Providers\RerankingProvider;
+use LaraGram\Ai\Contracts\Providers\StoreProvider;
+use LaraGram\Ai\Contracts\Providers\TextProvider;
+use LaraGram\Ai\Contracts\Providers\TranscriptionProvider;
+use LaraGram\Ai\Enums\Lab;
+use LaraGram\Ai\Gateway\Anthropic\AnthropicGateway;
+use LaraGram\Ai\Gateway\Gemini\GeminiGateway;
+use LaraGram\Ai\Gateway\OpenAi\OpenAiGateway;
+use LaraGram\Ai\Providers\AnthropicProvider;
+use LaraGram\Ai\Providers\AzureOpenAiProvider;
+use LaraGram\Ai\Providers\BedrockProvider;
+use LaraGram\Ai\Providers\CohereProvider;
+use LaraGram\Ai\Providers\DeepSeekProvider;
+use LaraGram\Ai\Providers\ElevenLabsProvider;
+use LaraGram\Ai\Providers\GeminiProvider;
+use LaraGram\Ai\Providers\GroqProvider;
+use LaraGram\Ai\Providers\JinaProvider;
+use LaraGram\Ai\Providers\MistralProvider;
+use LaraGram\Ai\Providers\OllamaProvider;
+use LaraGram\Ai\Providers\OpenAiCompatibleProvider;
+use LaraGram\Ai\Providers\OpenAiProvider;
+use LaraGram\Ai\Providers\OpenRouterProvider;
+use LaraGram\Ai\Providers\Provider;
+use LaraGram\Ai\Providers\TypeSafeProvider;
+use LaraGram\Ai\Providers\VoyageAiProvider;
+use LaraGram\Ai\Providers\XaiProvider;
+use LogicException;
+
+class AiManager extends MultipleInstanceManager
+{
+    use Concerns\InteractsWithFakeAgents;
+    use Concerns\InteractsWithFakeAudio;
+    use Concerns\InteractsWithFakeClassification;
+    use Concerns\InteractsWithFakeEmbeddings;
+    use Concerns\InteractsWithFakeFiles;
+    use Concerns\InteractsWithFakeImages;
+    use Concerns\InteractsWithFakeReranking;
+    use Concerns\InteractsWithFakeStores;
+    use Concerns\InteractsWithFakeTranscriptions;
+
+    /**
+     * The provider configurations registered at runtime via build(), keyed by provider name.
+     *
+     * @var array<string, array>
+     */
+    protected array $onDemandProviders = [];
+
+    /**
+     * Build an on-demand provider instance from the given configuration.
+     *
+     * @throws InvalidArgumentException
+     */
+    public function build(array $config): Provider
+    {
+        $name = $config['name'] ?? 'ondemand_'.md5(json_encode($config, JSON_THROW_ON_ERROR));
+
+        if ($this->app['config']->has("ai.providers.{$name}") || Lab::tryFrom($name) !== null) {
+            throw new InvalidArgumentException("The provider name [{$name}] is already taken.");
+        }
+
+        $this->onDemandProviders[$name] = [...$config, 'ondemand' => true];
+
+        return $this->forgetInstance($name)->instance($name);
+    }
+
+    /**
+     * Get an audio provider instance by name.
+     *
+     * @throws LogicException
+     */
+    public function audioProvider(?string $name = null): AudioProvider
+    {
+        return $this->ensureProviderSupports(AudioProvider::class, 'audio generation', $name);
+    }
+
+    /**
+     * Get an audio provider instance, using a fake gateway if audio is faked.
+     *
+     * @throws LogicException
+     */
+    public function fakeableAudioProvider(?string $name = null): AudioProvider
+    {
+        $provider = $this->audioProvider($name);
+
+        return $this->audioIsFaked()
+            ? (clone $provider)->useAudioGateway($this->fakeAudioGateway())
+            : $provider;
+    }
+
+    /**
+     * Get a classification provider instance by name.
+     *
+     * @throws LogicException
+     */
+    public function classificationProvider(?string $name = null): ClassificationProvider
+    {
+        return $this->ensureProviderSupports(ClassificationProvider::class, 'classification', $name);
+    }
+
+    /**
+     * Get a classification provider instance, using a fake gateway if classification is faked.
+     *
+     * @throws LogicException
+     */
+    public function fakeableClassificationProvider(?string $name = null): ClassificationProvider
+    {
+        $provider = $this->classificationProvider($name);
+
+        return $this->classificationIsFaked()
+            ? (clone $provider)->useClassificationGateway($this->fakeClassificationGateway())
+            : $provider;
+    }
+
+    /**
+     * Get an embedding provider instance by name.
+     *
+     * @throws LogicException
+     */
+    public function embeddingProvider(?string $name = null): EmbeddingProvider
+    {
+        return $this->ensureProviderSupports(EmbeddingProvider::class, 'embedding generation', $name);
+    }
+
+    /**
+     * Get an embedding provider instance, using a fake gateway if embeddings are faked.
+     *
+     * @throws LogicException
+     */
+    public function fakeableEmbeddingProvider(?string $name = null): EmbeddingProvider
+    {
+        $provider = $this->embeddingProvider($name);
+
+        return $this->embeddingsAreFaked()
+            ? (clone $provider)->useEmbeddingGateway($this->fakeEmbeddingGateway())
+            : $provider;
+    }
+
+    /**
+     * Get a reranking provider instance by name.
+     *
+     * @throws LogicException
+     */
+    public function rerankingProvider(?string $name = null): RerankingProvider
+    {
+        return $this->ensureProviderSupports(RerankingProvider::class, 'reranking', $name);
+    }
+
+    /**
+     * Get a reranking provider instance, using a fake gateway if reranking is faked.
+     *
+     * @throws LogicException
+     */
+    public function fakeableRerankingProvider(?string $name = null): RerankingProvider
+    {
+        $provider = $this->rerankingProvider($name);
+
+        return $this->rerankingIsFaked()
+            ? (clone $provider)->useRerankingGateway($this->fakeRerankingGateway())
+            : $provider;
+    }
+
+    /**
+     * Get an image provider instance by name.
+     *
+     * @throws LogicException
+     */
+    public function imageProvider(?string $name = null): ImageProvider
+    {
+        return $this->ensureProviderSupports(ImageProvider::class, 'image generation', $name);
+    }
+
+    /**
+     * Get an image provider instance, using a fake gateway if images are faked.
+     *
+     * @throws LogicException
+     */
+    public function fakeableImageProvider(?string $name = null): ImageProvider
+    {
+        $provider = $this->imageProvider($name);
+
+        return $this->imagesAreFaked()
+            ? (clone $provider)->useImageGateway($this->fakeImageGateway())
+            : $provider;
+    }
+
+    /**
+     * Get a text provider instance by name.
+     *
+     * @throws LogicException
+     */
+    public function textProvider(?string $name = null): TextProvider
+    {
+        return $this->ensureProviderSupports(TextProvider::class, 'text generation', $name);
+    }
+
+    /**
+     * Get a provider instance for an agent by name.
+     *
+     * @throws LogicException
+     */
+    public function textProviderFor(Agent $agent, ?string $name = null): TextProvider
+    {
+        $provider = $this->textProvider($name);
+
+        return $this->hasFakeGatewayFor($agent)
+            ? (clone $provider)->useTextGateway($this->fakeGatewayFor($agent))
+            : $provider;
+    }
+
+    /**
+     * Get a transcription provider instance by name.
+     *
+     * @throws LogicException
+     */
+    public function transcriptionProvider(?string $name = null): TranscriptionProvider
+    {
+        return $this->ensureProviderSupports(TranscriptionProvider::class, 'transcription generation', $name);
+    }
+
+    /**
+     * Get a transcription provider instance, using a fake gateway if transcriptions are faked.
+     *
+     * @throws LogicException
+     */
+    public function fakeableTranscriptionProvider(?string $name = null): TranscriptionProvider
+    {
+        $provider = $this->transcriptionProvider($name);
+
+        return $this->transcriptionsAreFaked()
+            ? (clone $provider)->useTranscriptionGateway($this->fakeTranscriptionGateway())
+            : $provider;
+    }
+
+    /**
+     * Get a file provider instance by name.
+     *
+     * @throws LogicException
+     */
+    public function fileProvider(?string $name = null): FileProvider
+    {
+        return $this->ensureProviderSupports(FileProvider::class, 'file management', $name);
+    }
+
+    /**
+     * Get a file provider instance, using a fake gateway if files are faked.
+     *
+     * @throws LogicException
+     */
+    public function fakeableFileProvider(?string $name = null): FileProvider
+    {
+        $provider = $this->fileProvider($name);
+
+        return $this->filesAreFaked()
+            ? (clone $provider)->useFileGateway($this->fakeFileGateway())
+            : $provider;
+    }
+
+    /**
+     * Get a store provider instance by name.
+     *
+     * @throws LogicException
+     */
+    public function storeProvider(?string $name = null): StoreProvider
+    {
+        return $this->ensureProviderSupports(StoreProvider::class, 'store management', $name);
+    }
+
+    /**
+     * Get a store provider instance, using a fake gateway if stores are faked.
+     *
+     * @throws LogicException
+     */
+    public function fakeableStoreProvider(?string $name = null): StoreProvider
+    {
+        $provider = $this->storeProvider($name);
+
+        return $this->storesAreFaked()
+            ? (clone $provider)->useStoreGateway($this->fakeStoreGateway())
+            : $provider;
+    }
+
+    /**
+     * Create an Anthropic powered instance.
+     */
+    public function createAnthropicDriver(array $config): AnthropicProvider
+    {
+        return new AnthropicProvider(
+            new AnthropicGateway($this->app['events']),
+            $config,
+            $this->app->make(Dispatcher::class)
+        );
+    }
+
+    /**
+     * Create an Azure OpenAI powered instance.
+     */
+    public function createAzureDriver(array $config): AzureOpenAiProvider
+    {
+        return new AzureOpenAiProvider(
+            $config,
+            $this->app->make(Dispatcher::class)
+        );
+    }
+
+    /**
+     * Create an AWS Bedrock powered instance.
+     */
+    public function createBedrockDriver(array $config): BedrockProvider
+    {
+        return new BedrockProvider(
+            $config,
+            $this->app->make(Dispatcher::class)
+        );
+    }
+
+    /**
+     * Create a Cohere powered instance.
+     */
+    public function createCohereDriver(array $config): CohereProvider
+    {
+        return new CohereProvider(
+            $config,
+            $this->app->make(Dispatcher::class)
+        );
+    }
+
+    /**
+     * Create a DeepSeek powered instance.
+     */
+    public function createDeepseekDriver(array $config): DeepSeekProvider
+    {
+        return new DeepSeekProvider(
+            $config,
+            $this->app->make(Dispatcher::class)
+        );
+    }
+
+    /**
+     * Create an ElevenLabs powered instance.
+     */
+    public function createElevenDriver(array $config): ElevenLabsProvider
+    {
+        return new ElevenLabsProvider(
+            $config,
+            $this->app->make(Dispatcher::class)
+        );
+    }
+
+    /**
+     * Create a Gemini powered instance.
+     */
+    public function createGeminiDriver(array $config): GeminiProvider
+    {
+        return new GeminiProvider(
+            new GeminiGateway($this->app['events']),
+            $config,
+            $this->app->make(Dispatcher::class)
+        );
+    }
+
+    /**
+     * Create a Groq powered instance.
+     */
+    public function createGroqDriver(array $config): GroqProvider
+    {
+        return new GroqProvider(
+            $config,
+            $this->app->make(Dispatcher::class)
+        );
+    }
+
+    /**
+     * Create a Jina powered instance.
+     */
+    public function createJinaDriver(array $config): JinaProvider
+    {
+        return new JinaProvider(
+            $config,
+            $this->app->make(Dispatcher::class)
+        );
+    }
+
+    /**
+     * Create a Mistral AI powered instance.
+     */
+    public function createMistralDriver(array $config): MistralProvider
+    {
+        return new MistralProvider(
+            $config,
+            $this->app->make(Dispatcher::class)
+        );
+    }
+
+    /**
+     * Create an Ollama powered instance.
+     */
+    public function createOllamaDriver(array $config): OllamaProvider
+    {
+        return new OllamaProvider(
+            $config,
+            $this->app->make(Dispatcher::class)
+        );
+    }
+
+    /**
+     * Create an OpenAI powered instance.
+     */
+    public function createOpenaiDriver(array $config): OpenAiProvider
+    {
+        return new OpenAiProvider(
+            new OpenAiGateway($this->app['events']),
+            $config,
+            $this->app->make(Dispatcher::class)
+        );
+    }
+
+    /**
+     * Create an OpenAI-compatible powered instance.
+     */
+    public function createOpenaiCompatibleDriver(array $config): OpenAiCompatibleProvider
+    {
+        return new OpenAiCompatibleProvider(
+            $config,
+            $this->app->make(Dispatcher::class)
+        );
+    }
+
+    /**
+     * Create an OpenRouter powered instance.
+     */
+    public function createOpenrouterDriver(array $config): OpenRouterProvider
+    {
+        return new OpenRouterProvider(
+            $config,
+            $this->app->make(Dispatcher::class)
+        );
+    }
+
+    /**
+     * Create a TypeSafe powered instance.
+     */
+    public function createTypesafeDriver(array $config): TypeSafeProvider
+    {
+        return new TypeSafeProvider(
+            $config,
+            $this->app->make(Dispatcher::class)
+        );
+    }
+
+    /**
+     * Create a VoyageAI powered instance.
+     */
+    public function createVoyageaiDriver(array $config): VoyageAiProvider
+    {
+        return new VoyageAiProvider(
+            $config,
+            $this->app->make(Dispatcher::class)
+        );
+    }
+
+    /**
+     * Create an xAI powered instance.
+     */
+    public function createXaiDriver(array $config): XaiProvider
+    {
+        return new XaiProvider(
+            $config,
+            $this->app->make(Dispatcher::class),
+        );
+    }
+
+    /**
+     * Get a provider instance by name, ensuring it implements the given capability contract.
+     *
+     * @template TProvider
+     *
+     * @param  class-string<TProvider>  $contract
+     * @return TProvider
+     *
+     * @throws LogicException
+     */
+    protected function ensureProviderSupports(string $contract, string $capability, ?string $name): mixed
+    {
+        $instance = $this->instance($name);
+
+        if (! $instance instanceof $contract) {
+            throw new LogicException('Provider ['.$instance::class."] does not support {$capability}.");
+        }
+
+        return $instance;
+    }
+
+    /**
+     * Get the default instance name.
+     */
+    public function getDefaultInstance(): string
+    {
+        $default = $this->app['config']['ai.default'];
+
+        if ($default instanceof Lab) {
+            return $default->value;
+        }
+
+        if (is_array($default)) {
+            throw new InvalidArgumentException('The "ai.default" config value must be a string provider name or a Lab enum, not an array.');
+        }
+
+        return $default;
+    }
+
+    /**
+     * Set the default instance name.
+     *
+     * @param  string  $name
+     */
+    public function setDefaultInstance($name): void
+    {
+        $this->app['config']['ai.default'] = $name;
+    }
+
+    /**
+     * Get the instance specific configuration.
+     *
+     * @param  string  $name
+     */
+    public function getInstanceConfig($name): array
+    {
+        $config = $this->onDemandProviders[$name] ?? $this->app['config']->get('ai.providers.'.$name);
+
+        if ($config === null && str_starts_with($name, 'ondemand_')) {
+            throw new InvalidArgumentException("On-demand provider [{$name}] was not built in this process. Build it where the work runs, such as the agent's provider() method.");
+        }
+
+        $config ??= ['driver' => $name];
+
+        if ($config['driver'] instanceof Lab) {
+            $config['driver'] = $config['driver']->value;
+        }
+
+        $config['name'] = $name;
+
+        return $config;
+    }
+
+    /**
+     * Flush the on-demand providers built during the current operation.
+     */
+    public function flushState(): void
+    {
+        $this->forgetInstance(array_keys($this->onDemandProviders));
+
+        $this->onDemandProviders = [];
+    }
+}

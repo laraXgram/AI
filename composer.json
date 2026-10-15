@@ -1,0 +1,46 @@
+{
+    "name": "laraxgram/ai",
+    "description": "The official AI SDK for LaraGram.",
+    "license": "MIT",
+    "keywords": [
+        "laragram",
+        "ai",
+        "telegram"
+    ],
+    "homepage": "https://github.com/laraxgram/ai",
+    "support": {
+        "issues": "https://github.com/laraxgram/ai/issues",
+        "source": "https://github.com/laraxgram/ai"
+    },
+    "require": {
+        "php": "^8.3",
+        "laraxgram/core": "^4"
+    },
+    "suggest": {
+        "laraxgram/mcp": "Required to use MCP client tools or MCP server tools with LaraGram AI agents.",
+        "laraxgram/mtproto": "Required to send agent output through an MTProto session."
+    },
+    "minimum-stability": "dev",
+    "prefer-stable": true,
+    "autoload": {
+        "psr-4": {
+            "LaraGram\\Ai\\": "src/"
+        },
+        "files": [
+            "functions.php"
+        ]
+    },
+    "config": {
+        "sort-packages": true
+    },
+    "extra": {
+        "branch-alias": {
+            "dev-master": "1.x-dev"
+        },
+        "laragram": {
+            "providers": [
+                "LaraGram\\Ai\\AiServiceProvider"
+            ]
+        }
+    }
+}

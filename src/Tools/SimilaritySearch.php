@@ -1,0 +1,147 @@
+<?php
+
+namespace LaraGram\Ai\Tools;
+
+use Closure;
+use LaraGram\Contracts\JsonSchema\JsonSchema;
+use LaraGram\Support\Arr;
+use LaraGram\Support\Collection;
+use InvalidArgumentException;
+use LaraGram\Ai\Approvals\Approval;
+use LaraGram\Ai\Concerns\InteractsWithApprovals;
+use LaraGram\Ai\Contracts\Approvable;
+use LaraGram\Ai\Contracts\Tool;
+
+class SimilaritySearch implements Approvable, Tool
+{
+    use InteractsWithApprovals;
+
+    protected ?string $description = null;
+
+    protected bool $rerank = false;
+
+    protected Closure|array|string|null $rerankBy = null;
+
+    protected ?int $rerankLimit = null;
+
+    public function __construct(
+        public Closure $using,
+    ) {}
+
+    /**
+     * Create a new similarity search tool instance.
+     *
+     * @throws InvalidArgumentException if the given model class name or vector column name is blank.
+     */
+    public static function usingModel(
+        string $model,
+        string $column,
+        float $minSimilarity = 0.6,
+        int $limit = 15,
+        ?Closure $query = null): self
+    {
+        if (blank($model)) {
+            throw new InvalidArgumentException('A model class name is required for similarity search.');
+        }
+
+        if (blank($column)) {
+            throw new InvalidArgumentException('A vector column name is required for similarity search.');
+        }
+
+        return new self(function (string $queryString) use ($model, $column, $minSimilarity, $limit, $query) {
+            $pendingQuery = $model::query()->whereVectorSimilarTo($column, $queryString, $minSimilarity);
+
+            if ($query instanceof Closure) {
+                $pendingQuery = $query($pendingQuery);
+            }
+
+            if ($limit !== 0) {
+                $pendingQuery->limit($limit);
+            }
+
+            return $pendingQuery
+                ->get()
+                ->map(fn ($model) => Arr::except($model->toArray(), [$column]));
+        });
+    }
+
+    /**
+     * Get the description of the tool's purpose.
+     */
+    public function description(): string
+    {
+        return $this->description ?? 'Search for documents similar to a given query.';
+    }
+
+    /**
+     * Execute the tool.
+     */
+    public function handle(Request $request): string
+    {
+        $results = call_user_func($this->using, $request->string('query'));
+
+        $results = match (true) {
+            is_array($results) => new Collection($results),
+            $results instanceof Collection => $results,
+            default => $results->get(),
+        };
+
+        if ($results->isEmpty()) {
+            return 'No relevant results found.';
+        }
+
+        if ($this->rerank) {
+            $results = $results->rerank(
+                $this->rerankBy,
+                $request->string('query'),
+                limit: $this->rerankLimit
+            );
+        }
+
+        return "Relevant results found. They are listed below in order of relevance:\n\n".
+            $results->toJson(JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    }
+
+    /**
+     * Set the tool's description.
+     */
+    public function withDescription(string $description): self
+    {
+        $this->description = $description;
+
+        return $this;
+    }
+
+    /**
+     * Indicate that the results should be reranked.
+     */
+    public function rerank(Closure|array|string $by, ?int $limit = null): self
+    {
+        $this->rerank = true;
+        $this->rerankBy = $by;
+        $this->rerankLimit = $limit;
+
+        return $this;
+    }
+
+    /**
+     * Get the tool's schema definition.
+     */
+    public function schema(JsonSchema $schema): array
+    {
+        return [
+            'query' => $schema
+                ->string()
+                ->description('The search query.')
+                ->required(),
+        ];
+    }
+
+    /**
+     * Determine whether the tool needs approval for the given request.
+     */
+    protected function needsApproval(Request $request): Approval|bool
+    {
+        return false;
+    }
+}

@@ -1,0 +1,300 @@
+<?php
+
+namespace LaraGram\Ai\Gateway\OpenRouter\Concerns;
+
+use Generator;
+use LaraGram\Support\Str;
+use LaraGram\Ai\Gateway\StepResponse;
+use LaraGram\Ai\Providers\Provider;
+use LaraGram\Ai\Responses\Data\Meta;
+use LaraGram\Ai\Responses\Data\TextUsage;
+use LaraGram\Ai\Responses\Data\ToolCall;
+use LaraGram\Ai\Responses\Data\UrlCitation;
+use LaraGram\Ai\Streaming\Events\Citation as CitationEvent;
+use LaraGram\Ai\Streaming\Events\Error;
+use LaraGram\Ai\Streaming\Events\ReasoningDelta;
+use LaraGram\Ai\Streaming\Events\ReasoningEnd;
+use LaraGram\Ai\Streaming\Events\ReasoningStart;
+use LaraGram\Ai\Streaming\Events\StreamEvent;
+use LaraGram\Ai\Streaming\Events\StreamStart;
+use LaraGram\Ai\Streaming\Events\TextDelta;
+use LaraGram\Ai\Streaming\Events\TextEnd;
+use LaraGram\Ai\Streaming\Events\TextStart;
+use LaraGram\Ai\Streaming\Events\ToolCall as ToolCallEvent;
+
+trait HandlesTextStreaming
+{
+    /** @return Generator<int, StreamEvent, mixed, StepResponse|null> */
+    protected function processTextStream(
+        string $invocationId,
+        Provider $provider,
+        string $model,
+        $streamBody,
+    ): Generator {
+        $messageId = $this->generateEventId();
+        $reasoningId = null;
+        $reasoningDetails = [];
+        $streamModel = $model;
+        $streamStartEmitted = false;
+        $textStartEmitted = false;
+        $currentText = '';
+        $toolCalls = [];
+        $pendingToolCalls = [];
+        $usage = null;
+        $finishReason = null;
+
+        foreach ($this->parseServerSentEvents($streamBody) as $data) {
+            if (isset($data['error'])) {
+                yield (new Error(
+                    $this->generateEventId(),
+                    $data['error']['code'] ?? 'unknown_error',
+                    $data['error']['message'] ?? 'Unknown error',
+                    false,
+                    time(),
+                ))->withInvocationId($invocationId);
+
+                return null;
+            }
+
+            $choice = $data['choices'][0] ?? null;
+
+            if (! $choice) {
+                if (isset($data['usage'])) {
+                    $usage = $this->extractUsage($data);
+                }
+
+                continue;
+            }
+
+            $delta = $choice['delta'] ?? [];
+
+            // Handle error finish reason from OpenRouter...
+            if (($choice['finish_reason'] ?? null) === 'error') {
+                $error = $choice['error'] ?? [];
+
+                yield (new Error(
+                    $this->generateEventId(),
+                    (string) ($error['code'] ?? 'provider_error'),
+                    $error['message'] ?? 'An upstream provider error occurred.',
+                    false,
+                    time(),
+                ))->withInvocationId($invocationId);
+
+                return null;
+            }
+
+            if (! $streamStartEmitted) {
+                $streamStartEmitted = true;
+                $streamModel = $data['model'] ?? $model;
+
+                yield (new StreamStart(
+                    $this->generateEventId(),
+                    $provider->name(),
+                    $streamModel,
+                    time(),
+                ))->withInvocationId($invocationId);
+            }
+
+            $reasoningDetails = $this->mergeReasoningDetails($reasoningDetails, $delta['reasoning_details'] ?? []);
+
+            $reasoning = $delta['reasoning'] ?? '';
+
+            if ($reasoning === '') {
+                $reasoning = $this->reasoningTextIn($delta['reasoning_details'] ?? []);
+            }
+
+            if ($reasoning !== '') {
+                if ($reasoningId === null) {
+                    $reasoningId = $this->generateEventId();
+
+                    yield (new ReasoningStart(
+                        $this->generateEventId(),
+                        $reasoningId,
+                        time(),
+                    ))->withInvocationId($invocationId);
+                }
+
+                yield (new ReasoningDelta(
+                    $this->generateEventId(),
+                    $reasoningId,
+                    $reasoning,
+                    time(),
+                ))->withInvocationId($invocationId);
+            }
+
+            if ($reasoningId !== null && ((isset($delta['content']) && $delta['content'] !== '') || isset($delta['tool_calls']))) {
+                yield (new ReasoningEnd(
+                    $this->generateEventId(),
+                    $reasoningId,
+                    time(),
+                ))->withInvocationId($invocationId);
+
+                $reasoningId = null;
+            }
+
+            if (isset($delta['content']) && $delta['content'] !== '') {
+                if (! $textStartEmitted) {
+                    $textStartEmitted = true;
+
+                    yield (new TextStart(
+                        $this->generateEventId(),
+                        $messageId,
+                        time(),
+                    ))->withInvocationId($invocationId);
+                }
+
+                $currentText .= $delta['content'];
+
+                yield (new TextDelta(
+                    $this->generateEventId(),
+                    $messageId,
+                    $delta['content'],
+                    time(),
+                ))->withInvocationId($invocationId);
+            }
+
+            if (isset($delta['tool_calls'])) {
+                foreach ($delta['tool_calls'] as $tcDelta) {
+                    $idx = $tcDelta['index'];
+
+                    if (! isset($pendingToolCalls[$idx])) {
+                        $pendingToolCalls[$idx] = [
+                            'id' => $tcDelta['id'] ?? '',
+                            'name' => $tcDelta['function']['name'] ?? '',
+                            'arguments' => '',
+                        ];
+                    }
+
+                    if (isset($tcDelta['function']['arguments'])) {
+                        $pendingToolCalls[$idx]['arguments'] .= $tcDelta['function']['arguments'];
+                    }
+                }
+            }
+
+            if (isset($delta['annotations'])) {
+                foreach ($delta['annotations'] as $annotation) {
+                    if (($annotation['type'] ?? '') === 'url_citation') {
+                        $urlCitation = $annotation['url_citation'] ?? [];
+
+                        yield (new CitationEvent(
+                            $this->generateEventId(),
+                            $messageId,
+                            new UrlCitation(
+                                $urlCitation['url'] ?? '',
+                                $urlCitation['title'] ?? null,
+                                isset($urlCitation['start_index']) ? (int) $urlCitation['start_index'] : null,
+                                isset($urlCitation['end_index']) ? (int) $urlCitation['end_index'] : null,
+                            ),
+                            time(),
+                        ))->withInvocationId($invocationId);
+                    }
+                }
+            }
+
+            if (isset($choice['finish_reason']) && $choice['finish_reason'] !== null) {
+                $finishReason = $choice['finish_reason'];
+            }
+
+            if (isset($data['usage'])) {
+                $usage = $this->extractUsage($data);
+            }
+        }
+
+        if ($reasoningId !== null) {
+            yield (new ReasoningEnd(
+                $this->generateEventId(),
+                $reasoningId,
+                time(),
+            ))->withInvocationId($invocationId);
+        }
+
+        if ($textStartEmitted) {
+            yield (new TextEnd(
+                $this->generateEventId(),
+                $messageId,
+                time(),
+            ))->withInvocationId($invocationId);
+        }
+
+        if (filled($pendingToolCalls) && $finishReason === 'tool_calls') {
+            foreach (array_values($pendingToolCalls) as $pending) {
+                $toolCall = new ToolCall(
+                    $pending['id'] ?? '',
+                    $pending['name'] ?? '',
+                    json_decode($pending['arguments'] ?? '{}', true) ?? [],
+                    $pending['id'] ?? null,
+                );
+
+                $toolCalls[] = $toolCall;
+
+                yield (new ToolCallEvent(
+                    $this->generateEventId(),
+                    $toolCall,
+                    time(),
+                ))->withInvocationId($invocationId);
+            }
+        }
+
+        return new StepResponse(
+            text: $currentText,
+            toolCalls: $toolCalls,
+            finishReason: $this->extractFinishReason(['finish_reason' => $finishReason ?? '']),
+            usage: $usage ?? new TextUsage(0, 0),
+            meta: new Meta($provider->name(), $streamModel),
+            replayBlocks: array_values($reasoningDetails),
+        );
+    }
+
+    /**
+     * Merge a delta's reasoning detail fragments by index.
+     *
+     * @param  array<int, array<string, mixed>>  $merged
+     * @param  array<int, array<string, mixed>>  $details
+     * @return array<int, array<string, mixed>>
+     */
+    protected function mergeReasoningDetails(array $merged, array $details): array
+    {
+        foreach ($details as $detail) {
+            $index = $detail['index'] ?? count($merged);
+
+            if (! isset($merged[$index])) {
+                $merged[$index] = $detail;
+
+                continue;
+            }
+
+            foreach ($detail as $key => $value) {
+                if (in_array($key, ['text', 'summary', 'data'], true) && is_string($value)) {
+                    $merged[$index][$key] = ($merged[$index][$key] ?? '').$value;
+                } elseif ($value !== null) {
+                    $merged[$index][$key] = $value;
+                }
+            }
+        }
+
+        ksort($merged);
+
+        return $merged;
+    }
+
+    /**
+     * Get the human readable reasoning carried by a delta's reasoning details.
+     *
+     * @param  array<int, array<string, mixed>>  $details
+     */
+    protected function reasoningTextIn(array $details): string
+    {
+        return implode('', array_map(
+            fn (array $detail): string => (string) ($detail['text'] ?? $detail['summary'] ?? ''),
+            $details,
+        ));
+    }
+
+    /**
+     * Generate a lowercase UUID v7 for use as a stream event ID.
+     */
+    protected function generateEventId(): string
+    {
+        return strtolower((string) Str::uuid7());
+    }
+}

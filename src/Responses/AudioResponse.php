@@ -1,0 +1,66 @@
+<?php
+
+namespace LaraGram\Ai\Responses;
+
+use LaraGram\Support\Str;
+use LaraGram\Ai\Concerns\Storable;
+use LaraGram\Ai\Responses\Data\Meta;
+use LaraGram\Ai\Responses\Data\Usage;
+
+class AudioResponse implements \Stringable
+{
+    use Storable;
+
+    public ?string $mime = null;
+
+    /**
+     * @param  string  $audio  The Base64 representation of the audio.
+     */
+    public function __construct(
+        public string $audio,
+        public Usage $usage,
+        public Meta $meta,
+        ?string $mimeType = null,
+    ) {
+        $this->mime = $mimeType;
+    }
+
+    /**
+     * Get a default filename for the file.
+     */
+    protected function randomStorageName(): string
+    {
+        return once(fn (): string => Str::random(40).match ($this->mime) {
+            'audio/wav', 'audio/x-wav' => '.wav',
+            'audio/opus' => '.opus',
+            'audio/pcm' => '.pcm',
+            'audio/ulaw' => '.ulaw',
+            'audio/alaw' => '.alaw',
+            default => '.mp3',
+        });
+    }
+
+    /**
+     * Get the raw representation of the audio.
+     */
+    public function content(): string
+    {
+        return base64_decode($this->audio);
+    }
+
+    /**
+     * Get the MIME type for the audio.
+     */
+    public function mimeType(): ?string
+    {
+        return $this->mime;
+    }
+
+    /**
+     * Get the raw string content of the audio.
+     */
+    public function __toString(): string
+    {
+        return $this->content();
+    }
+}

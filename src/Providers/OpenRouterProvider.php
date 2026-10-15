@@ -1,0 +1,254 @@
+<?php
+
+namespace LaraGram\Ai\Providers;
+
+use LaraGram\Contracts\Events\Dispatcher;
+use LaraGram\Ai\Contracts\Gateway\AudioGateway;
+use LaraGram\Ai\Contracts\Gateway\ClassificationGateway;
+use LaraGram\Ai\Contracts\Gateway\EmbeddingGateway;
+use LaraGram\Ai\Contracts\Gateway\FileGateway;
+use LaraGram\Ai\Contracts\Gateway\ImageGateway;
+use LaraGram\Ai\Contracts\Gateway\RerankingGateway;
+use LaraGram\Ai\Contracts\Gateway\StepTextGateway;
+use LaraGram\Ai\Contracts\Gateway\TranscriptionGateway;
+use LaraGram\Ai\Contracts\Providers\AudioProvider;
+use LaraGram\Ai\Contracts\Providers\ClassificationProvider;
+use LaraGram\Ai\Contracts\Providers\EmbeddingProvider;
+use LaraGram\Ai\Contracts\Providers\FileProvider;
+use LaraGram\Ai\Contracts\Providers\ImageProvider;
+use LaraGram\Ai\Contracts\Providers\RerankingProvider;
+use LaraGram\Ai\Contracts\Providers\SupportsWebFetch;
+use LaraGram\Ai\Contracts\Providers\SupportsWebSearch;
+use LaraGram\Ai\Contracts\Providers\TextProvider;
+use LaraGram\Ai\Contracts\Providers\TranscriptionProvider;
+use LaraGram\Ai\Enums\Lab;
+use LaraGram\Ai\Gateway\OpenRouter\OpenRouterClassificationGateway;
+use LaraGram\Ai\Gateway\OpenRouter\OpenRouterFileGateway;
+use LaraGram\Ai\Gateway\OpenRouter\OpenRouterGateway;
+use LaraGram\Ai\Providers\Tools\WebFetch;
+use LaraGram\Ai\Providers\Tools\WebSearch;
+
+class OpenRouterProvider extends Provider implements AudioProvider, ClassificationProvider, EmbeddingProvider, FileProvider, ImageProvider, RerankingProvider, SupportsWebFetch, SupportsWebSearch, TextProvider, TranscriptionProvider
+{
+    use Concerns\Classifies;
+    use Concerns\GeneratesAudio;
+    use Concerns\GeneratesEmbeddings;
+    use Concerns\GeneratesImages;
+    use Concerns\GeneratesText;
+    use Concerns\GeneratesTranscriptions;
+    use Concerns\HasAudioGateway;
+    use Concerns\HasClassificationGateway;
+    use Concerns\HasEmbeddingGateway;
+    use Concerns\HasFileGateway;
+    use Concerns\HasImageGateway;
+    use Concerns\HasRerankingGateway;
+    use Concerns\HasTextGateway;
+    use Concerns\HasTranscriptionGateway;
+    use Concerns\ManagesFiles;
+    use Concerns\Reranks;
+    use Concerns\StreamsText;
+
+    public function __construct(protected array $config, protected Dispatcher $events)
+    {
+        //
+    }
+
+    /**
+     * Get the web fetch tool options for the provider.
+     */
+    public function webFetchToolOptions(WebFetch $fetch): array
+    {
+        return $this->serverToolOptions($fetch);
+    }
+
+    /**
+     * Get the web search tool options for the provider.
+     */
+    public function webSearchToolOptions(WebSearch $search): array
+    {
+        return $this->serverToolOptions($search, [
+            'user_location' => $search->hasLocation()
+                ? array_filter([
+                    'type' => 'approximate',
+                    'city' => $search->city,
+                    'region' => $search->region,
+                    'country' => $search->country,
+                ])
+                : null,
+        ]);
+    }
+
+    /**
+     * Get the parameters for an OpenRouter server tool.
+     */
+    protected function serverToolOptions(WebFetch|WebSearch $tool, array $parameters = []): array
+    {
+        return array_filter([
+            'parameters' => array_filter([
+                'max_uses' => $tool->maxSearches,
+                'allowed_domains' => $tool->allowedDomains,
+                ...$parameters,
+            ]) + $tool->providerOptions(Lab::OpenRouter),
+        ]);
+    }
+
+    /**
+     * Get the provider's text gateway.
+     */
+    public function textGateway(): StepTextGateway
+    {
+        return $this->textGateway ??= new OpenRouterGateway($this->events);
+    }
+
+    /**
+     * Get the provider's embedding gateway.
+     */
+    public function embeddingGateway(): EmbeddingGateway
+    {
+        return $this->embeddingGateway ??= new OpenRouterGateway($this->events);
+    }
+
+    /**
+     * Get the name of the default text model.
+     */
+    public function defaultTextModel(): string
+    {
+        return $this->config['models']['text']['default'] ?? 'anthropic/claude-sonnet-5.5';
+    }
+
+    /**
+     * Get the name of the cheapest text model.
+     */
+    public function cheapestTextModel(): string
+    {
+        return $this->config['models']['text']['cheapest'] ?? 'anthropic/claude-haiku-4.5';
+    }
+
+    /**
+     * Get the name of the smartest text model.
+     */
+    public function smartestTextModel(): string
+    {
+        return $this->config['models']['text']['smartest'] ?? 'anthropic/claude-fable-5.1';
+    }
+
+    /**
+     * Get the provider's image gateway.
+     */
+    public function imageGateway(): ImageGateway
+    {
+        return $this->imageGateway ??= new OpenRouterGateway($this->events);
+    }
+
+    /**
+     * Get the name of the default image model.
+     */
+    public function defaultImageModel(): string
+    {
+        return $this->config['models']['image']['default'] ?? 'google/gemini-3.1-flash-image';
+    }
+
+    /**
+     * Get the default / normalized image options for the provider.
+     */
+    public function defaultImageOptions(?string $size = null, ?string $quality = null): array
+    {
+        return array_filter([
+            'aspect_ratio' => $size,
+            'resolution' => match ($quality) {
+                'low' => '1K',
+                'medium' => '2K',
+                'high' => '4K',
+                default => null,
+            },
+        ]);
+    }
+
+    /**
+     * Get the provider's audio gateway.
+     */
+    public function audioGateway(): AudioGateway
+    {
+        return $this->audioGateway ??= new OpenRouterGateway($this->events);
+    }
+
+    /**
+     * Get the name of the default audio (TTS) model.
+     */
+    public function defaultAudioModel(): string
+    {
+        return $this->config['models']['audio']['default'] ?? 'google/gemini-3.8-flash-lite-tts';
+    }
+
+    /**
+     * Get the provider's transcription gateway.
+     */
+    public function transcriptionGateway(): TranscriptionGateway
+    {
+        return $this->transcriptionGateway ??= new OpenRouterGateway($this->events);
+    }
+
+    /**
+     * Get the name of the default transcription (STT) model.
+     */
+    public function defaultTranscriptionModel(): string
+    {
+        return $this->config['models']['transcription']['default'] ?? 'openai/gpt-transcribe';
+    }
+
+    /**
+     * Get the name of the default embeddings model.
+     */
+    public function defaultEmbeddingsModel(): string
+    {
+        return $this->config['models']['embeddings']['default'] ?? 'google/gemini-embedding-001';
+    }
+
+    /**
+     * Get the default dimensions of the default embeddings model.
+     */
+    public function defaultEmbeddingsDimensions(): int
+    {
+        return $this->config['models']['embeddings']['dimensions'] ?? 1536;
+    }
+
+    /**
+     * Get the name of the default reranking model.
+     */
+    public function defaultRerankingModel(): string
+    {
+        return $this->config['models']['reranking']['default'] ?? 'cohere/rerank-4-pro';
+    }
+
+    /**
+     * Get the provider's file gateway.
+     */
+    public function fileGateway(): FileGateway
+    {
+        return $this->fileGateway ??= new OpenRouterFileGateway;
+    }
+
+    /**
+     * Get the provider's classification gateway.
+     */
+    public function classificationGateway(): ClassificationGateway
+    {
+        return $this->classificationGateway ??= new OpenRouterClassificationGateway;
+    }
+
+    /**
+     * Get the name of the default classification model.
+     */
+    public function defaultClassificationModel(): string
+    {
+        return $this->config['models']['classification']['default'] ?? '~typesafe/jev-latest';
+    }
+
+    /**
+     * Get the provider's reranking gateway.
+     */
+    public function rerankingGateway(): RerankingGateway
+    {
+        return $this->rerankingGateway ??= new OpenRouterGateway($this->events);
+    }
+}

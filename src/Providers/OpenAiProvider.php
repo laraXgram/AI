@@ -1,0 +1,223 @@
+<?php
+
+namespace LaraGram\Ai\Providers;
+
+use LaraGram\Support\Collection;
+use LaraGram\Ai\Contracts\Gateway\ClassificationGateway;
+use LaraGram\Ai\Contracts\Gateway\FileGateway;
+use LaraGram\Ai\Contracts\Gateway\StoreGateway;
+use LaraGram\Ai\Contracts\Providers\AudioProvider;
+use LaraGram\Ai\Contracts\Providers\ClassificationProvider;
+use LaraGram\Ai\Contracts\Providers\EmbeddingProvider;
+use LaraGram\Ai\Contracts\Providers\FileProvider;
+use LaraGram\Ai\Contracts\Providers\ImageProvider;
+use LaraGram\Ai\Contracts\Providers\StoreProvider;
+use LaraGram\Ai\Contracts\Providers\SupportsCodeExecution;
+use LaraGram\Ai\Contracts\Providers\SupportsFileSearch;
+use LaraGram\Ai\Contracts\Providers\SupportsToolSearch;
+use LaraGram\Ai\Contracts\Providers\SupportsWebSearch;
+use LaraGram\Ai\Contracts\Providers\TextProvider;
+use LaraGram\Ai\Contracts\Providers\TranscriptionProvider;
+use LaraGram\Ai\Enums\Lab;
+use LaraGram\Ai\Gateway\OpenAi\OpenAiClassificationGateway;
+use LaraGram\Ai\Gateway\OpenAi\OpenAiFileGateway;
+use LaraGram\Ai\Gateway\OpenAi\OpenAiStoreGateway;
+use LaraGram\Ai\Providers\Tools\CodeExecution;
+use LaraGram\Ai\Providers\Tools\FileSearch;
+use LaraGram\Ai\Providers\Tools\WebSearch;
+
+class OpenAiProvider extends Provider implements AudioProvider, ClassificationProvider, EmbeddingProvider, FileProvider, ImageProvider, StoreProvider, SupportsCodeExecution, SupportsFileSearch, SupportsToolSearch, SupportsWebSearch, TextProvider, TranscriptionProvider
+{
+    use Concerns\Classifies;
+    use Concerns\GeneratesAudio;
+    use Concerns\GeneratesEmbeddings;
+    use Concerns\GeneratesImages;
+    use Concerns\GeneratesText;
+    use Concerns\GeneratesTranscriptions;
+    use Concerns\HasAudioGateway;
+    use Concerns\HasClassificationGateway;
+    use Concerns\HasEmbeddingGateway;
+    use Concerns\HasFileGateway;
+    use Concerns\HasImageGateway;
+    use Concerns\HasStoreGateway;
+    use Concerns\HasTextGateway;
+    use Concerns\HasTranscriptionGateway;
+    use Concerns\ManagesFiles;
+    use Concerns\ManagesStores;
+    use Concerns\StreamsText;
+
+    /**
+     * Get the code execution tool options for the provider.
+     */
+    public function codeExecutionToolOptions(CodeExecution $codeExecution): array
+    {
+        return $codeExecution->providerOptions(Lab::OpenAI) + [
+            'container' => ['type' => 'auto'],
+        ];
+    }
+
+    /**
+     * Get the file search tool options for the provider.
+     */
+    public function fileSearchToolOptions(FileSearch $search): array
+    {
+        return array_filter([
+            'vector_store_ids' => $search->ids(),
+            'filters' => filled($search->filters) ? [
+                'type' => 'and',
+                'filters' => (new Collection($search->filters))->map(fn ($filter): array => [
+                    'type' => $filter['type'],
+                    'key' => $filter['key'],
+                    'value' => $filter['value'],
+                ])->all(),
+            ] : null,
+        ]);
+    }
+
+    /**
+     * Get the web search tool options for the provider.
+     */
+    public function webSearchToolOptions(WebSearch $search): array
+    {
+        $options = $search->providerOptions(Lab::OpenAI);
+
+        $filters = array_merge(
+            filled($search->allowedDomains) ? ['allowed_domains' => $search->allowedDomains] : [],
+            $options['filters'] ?? [],
+        );
+
+        unset($options['filters']);
+
+        return array_filter([
+            'filters' => filled($filters) ? $filters : null,
+            'user_location' => $search->hasLocation()
+                ? array_filter([
+                    'type' => 'approximate',
+                    'city' => $search->city,
+                    'region' => $search->region,
+                    'country' => $search->country,
+                ])
+                : null,
+        ]) + $options;
+    }
+
+    /**
+     * Get the name of the default text model.
+     */
+    public function defaultTextModel(): string
+    {
+        return $this->config['models']['text']['default'] ?? 'gpt-6.1-sol';
+    }
+
+    /**
+     * Get the name of the cheapest text model.
+     */
+    public function cheapestTextModel(): string
+    {
+        return $this->config['models']['text']['cheapest'] ?? 'gpt-6-luna';
+    }
+
+    /**
+     * Get the name of the smartest text model.
+     */
+    public function smartestTextModel(): string
+    {
+        return $this->config['models']['text']['smartest'] ?? 'gpt-6-astra';
+    }
+
+    /**
+     * Get the name of the default image model.
+     */
+    public function defaultImageModel(): string
+    {
+        return $this->config['models']['image']['default'] ?? 'gpt-image-2.5-flare';
+    }
+
+    /**
+     * Get the default / normalized image options for the provider.
+     */
+    public function defaultImageOptions(?string $size = null, ?string $quality = null): array
+    {
+        return array_filter([
+            'size' => match ($size) {
+                '1:1' => '1024x1024',
+                '2:3' => '1024x1536',
+                '3:2' => '1536x1024',
+                default => $size,
+            },
+            'quality' => $quality,
+        ]);
+    }
+
+    /**
+     * Get the name of the default audio (TTS) model.
+     */
+    public function defaultAudioModel(): string
+    {
+        return $this->config['models']['audio']['default'] ?? 'gpt-4o-mini-tts';
+    }
+
+    /**
+     * Get the name of the default transcription (STT) model.
+     */
+    public function defaultTranscriptionModel(): string
+    {
+        return $this->config['models']['transcription']['default'] ?? 'gpt-4o-transcribe-diarize';
+    }
+
+    /**
+     * Get the name of the default embeddings model.
+     */
+    public function defaultEmbeddingsModel(): string
+    {
+        return $this->config['models']['embeddings']['default'] ?? 'text-embedding-3-small';
+    }
+
+    /**
+     * Get the default dimensions of the default embeddings model.
+     */
+    public function defaultEmbeddingsDimensions(): int
+    {
+        return $this->config['models']['embeddings']['dimensions'] ?? 1536;
+    }
+
+    /**
+     * Get the name of the default classification model.
+     */
+    public function defaultClassificationModel(): string
+    {
+        return $this->config['models']['classification']['default'] ?? 'gpt-6-luna';
+    }
+
+    /**
+     * Determine if the provider can classify attachments alongside the state.
+     */
+    public function supportsClassificationAttachments(): bool
+    {
+        return true;
+    }
+
+    /**
+     * Get the provider's classification gateway.
+     */
+    public function classificationGateway(): ClassificationGateway
+    {
+        return $this->classificationGateway ??= new OpenAiClassificationGateway;
+    }
+
+    /**
+     * Get the provider's file gateway.
+     */
+    public function fileGateway(): FileGateway
+    {
+        return $this->fileGateway ??= new OpenAiFileGateway;
+    }
+
+    /**
+     * Get the provider's store gateway.
+     */
+    public function storeGateway(): StoreGateway
+    {
+        return $this->storeGateway ??= new OpenAiStoreGateway;
+    }
+}

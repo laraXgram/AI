@@ -1,0 +1,115 @@
+<?php
+
+namespace LaraGram\Ai\Gateway\Concerns;
+
+use Closure;
+use LaraGram\Http\Client\ConnectionException;
+use LaraGram\Http\Client\RequestException;
+use LaraGram\Ai\Exceptions\InsufficientCreditsException;
+use LaraGram\Ai\Exceptions\ProviderConnectionException;
+use LaraGram\Ai\Exceptions\ProviderOverloadedException;
+use LaraGram\Ai\Exceptions\RateLimitedException;
+use Throwable;
+
+trait HandlesFailoverErrors
+{
+    /**
+     * Execute a callback with failoverable error handling.
+     *
+     * @template T
+     *
+     * @param  Closure(): T  $callback
+     * @return T
+     */
+    protected function withErrorHandling(string $providerName, Closure $callback): mixed
+    {
+        try {
+            return retry(
+                2,
+                $callback,
+                fn (int $attempt, Throwable $exception): int => $this->retryAfterSeconds($exception) * 1000,
+                fn (Throwable $exception): bool => $this->retryAfterSeconds($exception) !== null,
+            );
+        } catch (ConnectionException $connectionException) {
+            throw ProviderConnectionException::forProvider(
+                $providerName, $connectionException->getCode(), $connectionException
+            );
+        } catch (RequestException $requestException) {
+            if ($requestException->response !== null) {
+                $status = $requestException->response->status();
+
+                if ($status === 429) {
+                    throw RateLimitedException::forProvider(
+                        $providerName, $requestException->getCode(), $requestException
+                    );
+                }
+
+                if ($status === 402) {
+                    throw InsufficientCreditsException::forProvider(
+                        $providerName, $requestException->getCode(), $requestException
+                    );
+                }
+
+                if (in_array($status, $this->overloadedStatusCodes())) {
+                    throw ProviderOverloadedException::forProvider(
+                        $providerName, $requestException->getCode(), $requestException
+                    );
+                }
+
+                if ($patterns = $this->insufficientCreditPatterns()) {
+                    $message = strtolower($requestException->response->json('error.message', ''));
+
+                    foreach ($patterns as $pattern) {
+                        if (str_contains($message, (string) $pattern)) {
+                            throw InsufficientCreditsException::forProvider(
+                                $providerName, $requestException->getCode(), $requestException
+                            );
+                        }
+                    }
+                }
+            }
+
+            throw $requestException;
+        }
+    }
+
+    /**
+     * Get the short Retry-After delay of a rate limited or overloaded response, if it has one.
+     */
+    protected function retryAfterSeconds(Throwable $exception): ?int
+    {
+        if (! $exception instanceof RequestException || $exception->response === null) {
+            return null;
+        }
+
+        $status = $exception->response->status();
+
+        if ($status !== 429 && ! in_array($status, $this->overloadedStatusCodes())) {
+            return null;
+        }
+
+        $retryAfter = $exception->response->header('Retry-After');
+
+        return ctype_digit($retryAfter) && (int) $retryAfter <= 10 ? (int) $retryAfter : null;
+    }
+
+    /**
+     * The status codes that indicate a provider is transiently unavailable and the request should fail over.
+     *
+     * @return list<int>
+     */
+    protected function overloadedStatusCodes(): array
+    {
+        return [502, 503, 504, 520, 522, 524];
+    }
+
+    /**
+     * The patterns used to detect insufficient credits or quota errors.
+     *
+     * @return list<string>
+     */
+    protected function insufficientCreditPatterns(): array
+    {
+        return [];
+    }
+}

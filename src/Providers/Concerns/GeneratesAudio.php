@@ -1,0 +1,54 @@
+<?php
+
+namespace LaraGram\Ai\Providers\Concerns;
+
+use LaraGram\Support\Str;
+use LaraGram\Ai\Ai;
+use LaraGram\Ai\Events\AudioFailed;
+use LaraGram\Ai\Events\AudioGenerated;
+use LaraGram\Ai\Events\GeneratingAudio;
+use LaraGram\Ai\Prompts\AudioPrompt;
+use LaraGram\Ai\Responses\AudioResponse;
+use Throwable;
+
+trait GeneratesAudio
+{
+    /**
+     * Generate audio from the given text.
+     *
+     * @param  array<string, mixed>  $providerOptions
+     */
+    public function audio(
+        string $text,
+        string $voice = 'default-female',
+        ?string $instructions = null,
+        ?string $model = null,
+        int $timeout = 30,
+        array $providerOptions = [],
+    ): AudioResponse {
+        $invocationId = (string) Str::uuid7();
+
+        $model ??= $this->defaultAudioModel();
+
+        $prompt = new AudioPrompt($text, $voice, $instructions, $this, $model, $timeout, $providerOptions);
+
+        if (Ai::audioIsFaked()) {
+            Ai::recordAudioGeneration($prompt);
+        }
+
+        $this->events->dispatch(new GeneratingAudio(
+            $invocationId, $this, $model, $prompt,
+        ));
+
+        return tap($this->dispatchingFailure(
+            fn () => $this->audioGateway()->generateAudio(
+                $this, $model, $prompt->text, $prompt->voice, $prompt->instructions, $timeout, $prompt->providerOptions,
+            ),
+            fn (Throwable $exception) => new AudioFailed($invocationId, $this, $model, $prompt, $exception),
+        ), function (AudioResponse $response) use ($invocationId, $model, $prompt): void {
+            $this->events->dispatch(new AudioGenerated(
+                $invocationId, $this, $model, $prompt, $response,
+            ));
+        });
+    }
+}

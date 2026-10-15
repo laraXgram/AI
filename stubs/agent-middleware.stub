@@ -1,0 +1,20 @@
+<?php
+
+namespace {{ namespace }};
+
+use Closure;
+use LaraGram\Ai\Gateway\StepResponse;
+use LaraGram\Ai\PendingStep;
+
+class {{ class }}
+{
+    /**
+     * Handle the pending generation step.
+     */
+    public function handle(PendingStep $step, Closure $next)
+    {
+        return $next($step)->then(function (StepResponse $response) {
+            // ...
+        });
+    }
+}

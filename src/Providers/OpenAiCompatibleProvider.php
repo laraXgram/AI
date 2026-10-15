@@ -1,0 +1,155 @@
+<?php
+
+namespace LaraGram\Ai\Providers;
+
+use LaraGram\Contracts\Events\Dispatcher;
+use InvalidArgumentException;
+use LaraGram\Ai\Contracts\Gateway\ClassificationGateway;
+use LaraGram\Ai\Contracts\Gateway\EmbeddingGateway;
+use LaraGram\Ai\Contracts\Gateway\StepTextGateway;
+use LaraGram\Ai\Contracts\Gateway\TranscriptionGateway;
+use LaraGram\Ai\Contracts\Providers\ClassificationProvider;
+use LaraGram\Ai\Contracts\Providers\EmbeddingProvider;
+use LaraGram\Ai\Contracts\Providers\TextProvider;
+use LaraGram\Ai\Contracts\Providers\TranscriptionProvider;
+use LaraGram\Ai\Gateway\OpenAiCompatible\OpenAiCompatibleClassificationGateway;
+use LaraGram\Ai\Gateway\OpenAiCompatible\OpenAiCompatibleGateway;
+
+class OpenAiCompatibleProvider extends Provider implements ClassificationProvider, EmbeddingProvider, TextProvider, TranscriptionProvider
+{
+    use Concerns\Classifies;
+    use Concerns\GeneratesEmbeddings;
+    use Concerns\GeneratesText;
+    use Concerns\GeneratesTranscriptions;
+    use Concerns\HasClassificationGateway;
+    use Concerns\HasEmbeddingGateway;
+    use Concerns\HasTextGateway;
+    use Concerns\HasTranscriptionGateway;
+    use Concerns\StreamsText;
+
+    public function __construct(protected array $config, protected Dispatcher $events)
+    {
+        //
+    }
+
+    /**
+     * Get the credentials for the underlying AI provider.
+     */
+    #[\Override]
+    public function providerCredentials(): array
+    {
+        return ['key' => $this->config['key'] ?? null];
+    }
+
+    /**
+     * Get the provider's text gateway.
+     */
+    public function textGateway(): StepTextGateway
+    {
+        return $this->textGateway ??= new OpenAiCompatibleGateway($this->events);
+    }
+
+    /**
+     * Get the provider's embedding gateway.
+     */
+    public function embeddingGateway(): EmbeddingGateway
+    {
+        return $this->embeddingGateway ??= new OpenAiCompatibleGateway($this->events);
+    }
+
+    /**
+     * Get the provider's transcription gateway.
+     */
+    public function transcriptionGateway(): TranscriptionGateway
+    {
+        return $this->transcriptionGateway ??= new OpenAiCompatibleGateway($this->events);
+    }
+
+    /**
+     * Get the name of the default text model.
+     */
+    public function defaultTextModel(): string
+    {
+        return $this->config['models']['text']['default'] ?? throw new InvalidArgumentException(
+            "The [{$this->name()}] openai-compatible provider requires a default text model. Set [models.text.default] in its configuration or pass a model explicitly."
+        );
+    }
+
+    /**
+     * Get the name of the cheapest text model.
+     */
+    public function cheapestTextModel(): string
+    {
+        return $this->config['models']['text']['cheapest'] ?? $this->defaultTextModel();
+    }
+
+    /**
+     * Get the name of the smartest text model.
+     */
+    public function smartestTextModel(): string
+    {
+        return $this->config['models']['text']['smartest'] ?? $this->defaultTextModel();
+    }
+
+    /**
+     * Get the name of the default embeddings model.
+     */
+    public function defaultEmbeddingsModel(): string
+    {
+        return $this->config['models']['embeddings']['default'] ?? throw new InvalidArgumentException(
+            "The [{$this->name()}] openai-compatible provider requires a default embeddings model. Set [models.embeddings.default] in its configuration or pass a model explicitly."
+        );
+    }
+
+    /**
+     * Get the name of the default transcription (STT) model.
+     */
+    public function defaultTranscriptionModel(): string
+    {
+        return $this->config['models']['transcription']['default'] ?? throw new InvalidArgumentException(
+            "The [{$this->name()}] openai-compatible provider requires a default transcription model. Set [models.transcription.default] in its configuration or pass a model explicitly."
+        );
+    }
+
+    /**
+     * Get the provider's classification gateway.
+     */
+    public function classificationGateway(): ClassificationGateway
+    {
+        return $this->classificationGateway ??= new OpenAiCompatibleClassificationGateway;
+    }
+
+    /**
+     * Get the name of the default classification model.
+     */
+    public function defaultClassificationModel(): string
+    {
+        return $this->config['models']['classification']['default'] ?? throw new InvalidArgumentException(
+            "The [{$this->name()}] openai-compatible provider requires a default classification model. Set [models.classification.default] in its configuration or pass a model explicitly."
+        );
+    }
+
+    /**
+     * Determine if the provider can classify attachments alongside the state.
+     */
+    public function supportsClassificationAttachments(): bool
+    {
+        return true;
+    }
+
+    /**
+     * Get the default dimensions of the default embeddings model.
+     */
+    public function defaultEmbeddingsDimensions(): int
+    {
+        return $this->config['models']['embeddings']['dimensions'] ?? 0;
+    }
+
+    /**
+     * Determine if the provider may omit dimensions and use a model's native embedding dimensions.
+     */
+    protected function supportsNativeEmbeddingDimensions(): bool
+    {
+        return true;
+    }
+}
