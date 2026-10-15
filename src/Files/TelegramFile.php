@@ -60,7 +60,7 @@ class TelegramFile
 
             return $value->type() === 'photo' && ! $value->isAlbum()
                 ? [static::toFile($value->last())]
-                : array_map(fn (MediaFile $file) => static::toFile(static::largest($file)), $value->isAlbum() ? $value->all() : [$value->first()]);
+                : array_map(fn (MediaFile $file) => static::toFile($file->largest()), $value->isAlbum() ? $value->all() : [$value->first()]);
         }
 
         return [static::toFile($value)];
@@ -114,19 +114,9 @@ class TelegramFile
      */
     protected static function fromMediaFile(MediaFile $file): array
     {
-        $file = static::largest($file);
+        $file = $file->largest();
 
         return [static::download($file->url()), $file->type(), $file->mimeType(), $file->fileName()];
-    }
-
-    /**
-     * Get the largest size of a photo, or the file itself.
-     */
-    protected static function largest(MediaFile $file): MediaFile
-    {
-        $sizes = $file->sizes();
-
-        return $sizes === [] ? $file : $sizes[array_key_last($sizes)];
     }
 
     /**

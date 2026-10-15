@@ -11,7 +11,7 @@ trait HasQueuedResponseCallbacks
      */
     public function then(Closure $callback): self
     {
-        $this->dispatchable->then($callback);
+        $this->dispatchable->getJob()->then($callback);
 
         return $this;
     }
@@ -21,7 +21,7 @@ trait HasQueuedResponseCallbacks
      */
     public function catch(Closure $callback): self
     {
-        $this->dispatchable->catch($callback);
+        $this->dispatchable->getJob()->catch($callback);
 
         return $this;
     }
