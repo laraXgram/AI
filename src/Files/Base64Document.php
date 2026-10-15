@@ -26,8 +26,14 @@ class Base64Document extends Document implements Arrayable, JsonSerializable, St
      * Create a new instance from an uploaded file.
      */
     #[\Override]
-    public static function fromUpload(UploadedFile $file, ?string $mimeType = null): self
+    public static function fromUpload(mixed $file, ?string $mimeType = null): self
     {
+        if (TelegramFile::is($file)) {
+            $attachment = TelegramFile::toFile($file);
+
+            return (new self($attachment->base64, $mimeType ?? $attachment->mimeType()))->as($attachment->name());
+        }
+
         return new self(
             base64_encode($file->getContent()),
             mimeType: $mimeType ?? $file->getClientMimeType(),

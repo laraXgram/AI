@@ -28,8 +28,14 @@ class Base64Audio extends Audio implements Arrayable, JsonSerializable, Storable
     /**
      * Create a new instance from an uploaded file.
      */
-    public static function fromUpload(UploadedFile $file, ?string $mimeType = null): self
+    public static function fromUpload(mixed $file, ?string $mimeType = null): self
     {
+        if (TelegramFile::is($file)) {
+            $attachment = TelegramFile::toFile($file);
+
+            return new self($attachment->base64, $mimeType ?? $attachment->mimeType());
+        }
+
         return new self(
             base64_encode($file->getContent()),
             mimeType: $mimeType ?? $file->getClientMimeType(),

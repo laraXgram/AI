@@ -2,6 +2,7 @@
 
 namespace LaraGram\Ai;
 
+use LaraGram\Ai\Files\TelegramFile;
 use Closure;
 use LaraGram\Http\UploadedFile;
 use LaraGram\Ai\Contracts\Files\HasProviderId;
@@ -27,9 +28,13 @@ class Store
      * Add a file to the store.
      */
     public function add(
-        StorableFile|UploadedFile|HasProviderId|string $file,
+        mixed $file,
         array $metadata = [],
     ): AddedDocumentResponse {
+        if (TelegramFile::is($file)) {
+            $file = TelegramFile::toFile($file);
+        }
+
         if ($file instanceof UploadedFile) {
             $file = LocalDocument::fromUploadedFile($file);
         }

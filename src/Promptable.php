@@ -2,6 +2,7 @@
 
 namespace LaraGram\Ai;
 
+use LaraGram\Ai\Files\TelegramFile;
 use Closure;
 use Generator;
 use LaraGram\Broadcasting\Channel;
@@ -280,6 +281,8 @@ trait Promptable
                 ?? $prompt->message()
                 ?? throw new InvalidArgumentException('The agent input contains no user message or approval decisions.');
         }
+
+        $attachments = TelegramFile::normalize($attachments);
 
         return match (true) {
             $prompt instanceof UserMessage => [$prompt->content ?? '', null, [...$prompt->attachments->all(), ...$attachments]],

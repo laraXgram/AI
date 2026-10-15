@@ -2,6 +2,7 @@
 
 namespace LaraGram\Ai\Prompts;
 
+use LaraGram\Ai\Files\TelegramFile;
 use LaraGram\Support\Collection;
 use LaraGram\Support\Str;
 use LaraGram\Ai\Approvals\Decisions;
@@ -67,7 +68,7 @@ class AgentPrompt extends Prompt
         parent::__construct($prompt, $provider, $model, $approvalDecisions);
 
         $this->agent = $agent;
-        $this->attachments = Collection::make($attachments);
+        $this->attachments = Collection::make(TelegramFile::normalize($attachments));
         $this->messages = $messages;
         $this->tools = $tools;
         $this->timeout = $timeout;

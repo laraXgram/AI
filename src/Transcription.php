@@ -2,6 +2,7 @@
 
 namespace LaraGram\Ai;
 
+use LaraGram\Ai\Files\TelegramFile;
 use Closure;
 use LaraGram\Http\UploadedFile;
 use InvalidArgumentException;
@@ -19,9 +20,11 @@ class Transcription
      *
      * @throws InvalidArgumentException if the given base64 audio string is empty.
      */
-    public static function of(TranscribableAudio|UploadedFile|string $audio): PendingTranscriptionGeneration
+    public static function of(mixed $audio): PendingTranscriptionGeneration
     {
-        if (is_string($audio)) {
+        if (TelegramFile::is($audio)) {
+            $audio = Base64Audio::fromUpload($audio);
+        } elseif (is_string($audio)) {
             $audio = new Base64Audio($audio);
         } elseif ($audio instanceof UploadedFile) {
             $audio = Base64Audio::fromUpload($audio);
@@ -59,7 +62,7 @@ class Transcription
     /**
      * Generate a transcription of the given uploaded file.
      */
-    public static function fromUpload(UploadedFile $file): PendingTranscriptionGeneration
+    public static function fromUpload(mixed $file): PendingTranscriptionGeneration
     {
         return static::of($file);
     }

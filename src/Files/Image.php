@@ -49,8 +49,14 @@ abstract class Image extends File
     /**
      * Create a new Base64 image using the given file upload.
      */
-    public static function fromUpload(UploadedFile $file, ?string $mimeType = null): Base64Image
+    public static function fromUpload(mixed $file, ?string $mimeType = null): Base64Image
     {
+        if (TelegramFile::is($file)) {
+            $attachment = TelegramFile::toFile($file);
+
+            return (new Base64Image($attachment->base64, $mimeType ?? $attachment->mimeType()))->as($attachment->name());
+        }
+
         return (new Base64Image(
             base64_encode($file->getContent()),
             $mimeType ?? $file->getClientMimeType(),

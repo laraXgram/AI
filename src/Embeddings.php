@@ -2,6 +2,7 @@
 
 namespace LaraGram\Ai;
 
+use LaraGram\Ai\Files\TelegramFile;
 use Closure;
 use InvalidArgumentException;
 use LaraGram\Ai\Files\Audio;
@@ -22,7 +23,7 @@ class Embeddings
      */
     public static function for(array $inputs): PendingEmbeddingsGeneration
     {
-        return new PendingEmbeddingsGeneration($inputs);
+        return new PendingEmbeddingsGeneration(TelegramFile::normalize($inputs));
     }
 
     /**

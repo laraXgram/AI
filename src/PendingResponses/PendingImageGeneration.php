@@ -2,6 +2,7 @@
 
 namespace LaraGram\Ai\PendingResponses;
 
+use LaraGram\Ai\Files\TelegramFile;
 use LaraGram\Support\Traits\Conditionable;
 use InvalidArgumentException;
 use LaraGram\Ai\Ai;
@@ -46,7 +47,7 @@ class PendingImageGeneration
      */
     public function attachments(array $attachments): self
     {
-        $this->attachments = $attachments;
+        $this->attachments = TelegramFile::normalize($attachments);
 
         return $this;
     }

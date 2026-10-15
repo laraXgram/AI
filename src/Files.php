@@ -2,6 +2,7 @@
 
 namespace LaraGram\Ai;
 
+use LaraGram\Ai\Files\TelegramFile;
 use Closure;
 use LaraGram\Http\UploadedFile;
 use LaraGram\Ai\Contracts\Files\StorableFile;
@@ -26,13 +27,14 @@ class Files
      * Store the given file.
      */
     public static function put(
-        StorableFile|UploadedFile|string $file,
+        mixed $file,
         ?string $mimeType = null,
         ?string $name = null,
         ?string $provider = null): StoredFileResponse
     {
         $file = match (true) {
             is_string($file) => new Base64Document(base64_encode($file), $mimeType),
+            TelegramFile::is($file) => TelegramFile::toFile($file),
             $file instanceof UploadedFile => LocalDocument::fromUploadedFile($file),
             default => $file,
         };

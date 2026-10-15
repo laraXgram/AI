@@ -2,6 +2,7 @@
 
 namespace LaraGram\Ai;
 
+use LaraGram\Ai\Files\TelegramFile;
 use Closure;
 use LaraGram\Http\UploadedFile;
 use InvalidArgumentException;
@@ -21,7 +22,7 @@ class Classification
      */
     public static function of(string|array $state, array $attachments = []): PendingClassification
     {
-        return new PendingClassification($state, $attachments);
+        return new PendingClassification($state, TelegramFile::normalize($attachments));
     }
 
     /**

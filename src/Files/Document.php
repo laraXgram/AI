@@ -62,8 +62,14 @@ abstract class Document extends File
     /**
      * Create a new Base64 document using the given file upload.
      */
-    public static function fromUpload(UploadedFile $file, ?string $mimeType = null): Base64Document
+    public static function fromUpload(mixed $file, ?string $mimeType = null): Base64Document
     {
+        if (TelegramFile::is($file)) {
+            $attachment = TelegramFile::toFile($file);
+
+            return (new Base64Document($attachment->base64, $mimeType ?? $attachment->mimeType()))->as($attachment->name());
+        }
+
         return (new Base64Document(
             base64_encode($file->getContent()),
             $mimeType ?? $file->getClientMimeType(),

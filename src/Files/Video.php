@@ -41,8 +41,14 @@ abstract class Video extends File
     /**
      * Create a new Base64 video using the given file upload.
      */
-    public static function fromUpload(UploadedFile $file, ?string $mimeType = null): Base64Video
+    public static function fromUpload(mixed $file, ?string $mimeType = null): Base64Video
     {
+        if (TelegramFile::is($file)) {
+            $attachment = TelegramFile::toFile($file);
+
+            return (new Base64Video($attachment->base64, $mimeType ?? $attachment->mimeType()))->as($attachment->name());
+        }
+
         return (new Base64Video(
             base64_encode($file->getContent()),
             $mimeType ?? $file->getClientMimeType(),
