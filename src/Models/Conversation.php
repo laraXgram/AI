@@ -72,6 +72,15 @@ class Conversation extends Model
             return $participant->getMorphClass();
         }
 
+        // Mini App users and chats share their conversations with the bot...
+        if ($participant instanceof \LaraGram\Luna\Telegram\WebAppUser) {
+            return 'telegram:user';
+        }
+
+        if ($participant instanceof \LaraGram\Luna\Telegram\WebAppChat) {
+            return 'telegram:chat';
+        }
+
         // Telegram users and chats from an update, such as user() and chat()...
         if ($participant instanceof \stdClass || str_starts_with($participant::class, 'LaraGram\\Laraquest\\')) {
             return isset($participant->type) && in_array($participant->type, ['private', 'group', 'supergroup', 'channel'], true)
