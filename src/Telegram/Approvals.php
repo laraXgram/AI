@@ -113,7 +113,13 @@ class Approvals
             return;
         }
 
-        $user = $request instanceof Request ? Chat::userOf($request) : null;
+        $user = match (true) {
+            $request instanceof Request => Chat::userOf($request),
+            $request instanceof \LaraGram\MTProto\Foundation\ClientRequest => isset($request->toArray()['user_id'])
+                ? (object) ['id' => $request->toArray()['user_id']]
+                : null,
+            default => null,
+        };
 
         if (! static::authorized($user, $state)) {
             $sender?->answerCallback('Only the person who asked may decide.');

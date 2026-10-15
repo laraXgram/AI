@@ -25,3 +25,9 @@ Bot::onStoppedMessageGeneration(function (Request $request) {
 
     StreamDelivery::stop($stopped->chat->id, $stopped->draft_id);
 });
+
+if (app()->bound('client.listener')) {
+    \LaraGram\MTProto\Facades\Client::onCallbackQueryData(Approvals::PREFIX.':{token}:{call}:{decision}', function ($request, string $token, string $call, string $decision) {
+        Approvals::decide($request, $token, $call, $decision);
+    });
+}
