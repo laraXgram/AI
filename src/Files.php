@@ -89,54 +89,6 @@ class Files
     }
 
     /**
-     * Assert that a file was stored matching a given truth test.
-     */
-    public static function assertStored(Closure $callback): void
-    {
-        Ai::assertFileUploaded($callback);
-    }
-
-    /**
-     * Assert that a file was not stored matching a given truth test.
-     */
-    public static function assertNotStored(Closure $callback): void
-    {
-        Ai::assertFileNotUploaded($callback);
-    }
-
-    /**
-     * Assert that no files were stored.
-     */
-    public static function assertNothingStored(): void
-    {
-        Ai::assertNoFilesUploaded();
-    }
-
-    /**
-     * Assert that a file was deleted matching a given truth test.
-     */
-    public static function assertDeleted(Closure|string $callback): void
-    {
-        Ai::assertFileDeleted($callback);
-    }
-
-    /**
-     * Assert that a file was not deleted matching a given truth test.
-     */
-    public static function assertNotDeleted(Closure|string $callback): void
-    {
-        Ai::assertFileNotDeleted($callback);
-    }
-
-    /**
-     * Assert that no files were deleted.
-     */
-    public static function assertNothingDeleted(): void
-    {
-        Ai::assertNoFilesDeleted();
-    }
-
-    /**
      * Determine if file operations are faked.
      */
     public static function isFaked(): bool

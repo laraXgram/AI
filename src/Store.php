@@ -105,46 +105,6 @@ class Store
     }
 
     /**
-     * Assert that a file was added to the store.
-     */
-    public function assertAdded(Closure|string $fileId): self
-    {
-        Ai::assertFileAddedToStore($this->fileAssertionCallback($fileId));
-
-        return $this;
-    }
-
-    /**
-     * Assert that a file was not added to the store.
-     */
-    public function assertNotAdded(Closure|string $fileId): self
-    {
-        Ai::assertFileNotAddedToStore($this->fileAssertionCallback($fileId));
-
-        return $this;
-    }
-
-    /**
-     * Assert that a document was removed from the store.
-     */
-    public function assertRemoved(Closure|string $documentId): self
-    {
-        Ai::assertFileRemovedFromStore($this->fileAssertionCallback($documentId));
-
-        return $this;
-    }
-
-    /**
-     * Assert that a document was not removed from the store.
-     */
-    public function assertNotRemoved(Closure|string $documentId): self
-    {
-        Ai::assertFileNotRemovedFromStore($this->fileAssertionCallback($documentId));
-
-        return $this;
-    }
-
-    /**
      * Get a callback for matching file assertions on this store.
      */
     protected function fileAssertionCallback(Closure|string $fileId): Closure

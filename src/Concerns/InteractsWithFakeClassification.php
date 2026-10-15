@@ -6,7 +6,6 @@ use Closure;
 use LaraGram\Support\Collection;
 use LaraGram\Ai\Gateway\FakeClassificationGateway;
 use LaraGram\Ai\Prompts\ClassificationPrompt;
-use PHPUnit\Framework\Assert as PHPUnit;
 
 trait InteractsWithFakeClassification
 {
@@ -34,45 +33,6 @@ trait InteractsWithFakeClassification
     public function recordClassification(ClassificationPrompt $prompt): self
     {
         $this->recordedClassifications[] = $prompt;
-
-        return $this;
-    }
-
-    /**
-     * Assert that a classification was performed matching a given truth test.
-     */
-    public function assertClassified(Closure $callback): self
-    {
-        PHPUnit::assertTrue(
-            (new Collection($this->recordedClassifications))->contains(fn (ClassificationPrompt $prompt) => $callback($prompt)),
-            'An expected classification was not recorded.'
-        );
-
-        return $this;
-    }
-
-    /**
-     * Assert that a classification was not performed matching a given truth test.
-     */
-    public function assertNotClassified(Closure $callback): self
-    {
-        PHPUnit::assertTrue(
-            (new Collection($this->recordedClassifications))->doesntContain(fn (ClassificationPrompt $prompt) => $callback($prompt)),
-            'An unexpected classification was recorded.'
-        );
-
-        return $this;
-    }
-
-    /**
-     * Assert that no classifications were performed.
-     */
-    public function assertNothingClassified(): self
-    {
-        PHPUnit::assertEmpty(
-            $this->recordedClassifications,
-            'Unexpected classifications were recorded.'
-        );
 
         return $this;
     }

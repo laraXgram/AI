@@ -34,54 +34,6 @@ class Embeddings
     }
 
     /**
-     * Assert that embeddings were generated matching a given truth test.
-     */
-    public static function assertGenerated(Closure $callback): void
-    {
-        Ai::assertEmbeddingsGenerated($callback);
-    }
-
-    /**
-     * Assert that embeddings were not generated matching a given truth test.
-     */
-    public static function assertNotGenerated(Closure $callback): void
-    {
-        Ai::assertEmbeddingsNotGenerated($callback);
-    }
-
-    /**
-     * Assert that no embeddings were generated.
-     */
-    public static function assertNothingGenerated(): void
-    {
-        Ai::assertNoEmbeddingsGenerated();
-    }
-
-    /**
-     * Assert that a queued embeddings generation was recorded matching a given truth test.
-     */
-    public static function assertQueued(Closure $callback): void
-    {
-        Ai::assertEmbeddingsQueued($callback);
-    }
-
-    /**
-     * Assert that a queued embeddings generation was not recorded matching a given truth test.
-     */
-    public static function assertNotQueued(Closure $callback): void
-    {
-        Ai::assertEmbeddingsNotQueued($callback);
-    }
-
-    /**
-     * Assert that no queued embeddings generations were recorded.
-     */
-    public static function assertNothingQueued(): void
-    {
-        Ai::assertNoEmbeddingsQueued();
-    }
-
-    /**
      * Determine if embeddings generation is faked.
      */
     public static function isFaked(): bool

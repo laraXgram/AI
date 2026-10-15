@@ -7,7 +7,6 @@ use LaraGram\Support\Collection;
 use LaraGram\Ai\Gateway\FakeImageGateway;
 use LaraGram\Ai\Prompts\ImagePrompt;
 use LaraGram\Ai\Prompts\QueuedImagePrompt;
-use PHPUnit\Framework\Assert as PHPUnit;
 
 trait InteractsWithFakeImages
 {
@@ -44,84 +43,6 @@ trait InteractsWithFakeImages
         } else {
             $this->recordedImageGenerations[] = $prompt;
         }
-
-        return $this;
-    }
-
-    /**
-     * Assert that an image was generated matching a given truth test.
-     */
-    public function assertImageGenerated(Closure $callback): self
-    {
-        PHPUnit::assertTrue(
-            (new Collection($this->recordedImageGenerations))->contains(fn (ImagePrompt $prompt) => $callback($prompt)),
-            'An expected image generation was not recorded.'
-        );
-
-        return $this;
-    }
-
-    /**
-     * Assert that an image was not generated matching a given truth test.
-     */
-    public function assertImageNotGenerated(Closure $callback): self
-    {
-        PHPUnit::assertTrue(
-            (new Collection($this->recordedImageGenerations))->doesntContain(fn (ImagePrompt $prompt) => $callback($prompt)),
-            'An unexpected image generation was recorded.'
-        );
-
-        return $this;
-    }
-
-    /**
-     * Assert that no images were generated.
-     */
-    public function assertNoImagesGenerated(): self
-    {
-        PHPUnit::assertEmpty(
-            $this->recordedImageGenerations,
-            'Unexpected image generations were recorded.'
-        );
-
-        return $this;
-    }
-
-    /**
-     * Assert that a queued image generation was recorded matching a given truth test.
-     */
-    public function assertImageQueued(Closure $callback): self
-    {
-        PHPUnit::assertTrue(
-            (new Collection($this->recordedQueuedImageGenerations))->contains(fn (QueuedImagePrompt $prompt) => $callback($prompt)),
-            'An expected queued image generation was not recorded.'
-        );
-
-        return $this;
-    }
-
-    /**
-     * Assert that a queued image generation was not recorded matching a given truth test.
-     */
-    public function assertImageNotQueued(Closure $callback): self
-    {
-        PHPUnit::assertTrue(
-            (new Collection($this->recordedQueuedImageGenerations))->doesntContain(fn (QueuedImagePrompt $prompt) => $callback($prompt)),
-            'An unexpected queued image generation was recorded.'
-        );
-
-        return $this;
-    }
-
-    /**
-     * Assert that no queued image generations were recorded.
-     */
-    public function assertNoImagesQueued(): self
-    {
-        PHPUnit::assertEmpty(
-            $this->recordedQueuedImageGenerations,
-            'Unexpected queued image generations were recorded.'
-        );
 
         return $this;
     }

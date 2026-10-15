@@ -73,54 +73,6 @@ class Transcription
     }
 
     /**
-     * Assert that a transcription was generated matching a given truth test.
-     */
-    public static function assertGenerated(Closure $callback): void
-    {
-        Ai::assertTranscriptionGenerated($callback);
-    }
-
-    /**
-     * Assert that a transcription was not generated matching a given truth test.
-     */
-    public static function assertNotGenerated(Closure $callback): void
-    {
-        Ai::assertTranscriptionNotGenerated($callback);
-    }
-
-    /**
-     * Assert that no transcriptions were generated.
-     */
-    public static function assertNothingGenerated(): void
-    {
-        Ai::assertNoTranscriptionsGenerated();
-    }
-
-    /**
-     * Assert that a queued transcription generation was recorded matching a given truth test.
-     */
-    public static function assertQueued(Closure $callback): void
-    {
-        Ai::assertTranscriptionQueued($callback);
-    }
-
-    /**
-     * Assert that a queued transcription generation was not recorded matching a given truth test.
-     */
-    public static function assertNotQueued(Closure $callback): void
-    {
-        Ai::assertTranscriptionNotQueued($callback);
-    }
-
-    /**
-     * Assert that no queued transcription generations were recorded.
-     */
-    public static function assertNothingQueued(): void
-    {
-        Ai::assertNoTranscriptionsQueued();
-    }
-
-    /**
      * Determine if transcription generation is faked.
      */
     public static function isFaked(): bool

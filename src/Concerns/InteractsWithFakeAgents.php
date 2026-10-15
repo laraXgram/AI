@@ -10,7 +10,6 @@ use LaraGram\Ai\Contracts\Agent;
 use LaraGram\Ai\Gateway\FakeTextGateway;
 use LaraGram\Ai\Prompts\AgentPrompt;
 use LaraGram\Ai\QueuedAgentPrompt;
-use PHPUnit\Framework\Assert as PHPUnit;
 
 trait InteractsWithFakeAgents
 {
@@ -71,119 +70,6 @@ trait InteractsWithFakeAgents
         } else {
             $this->recordedPrompts[$prompt->agent::class][] = $prompt;
         }
-
-        return $this;
-    }
-
-    /**
-     * Assert that a prompt was received matching a given truth test.
-     */
-    public function assertAgentWasPrompted(
-        string $agent,
-        Closure|string $callback,
-        ?array $prompts = null,
-        ?string $message = null): self
-    {
-        $callback = is_string($callback)
-            ? fn ($prompt): bool => $prompt->prompt === $callback
-            : $callback;
-
-        PHPUnit::assertTrue(
-            (new Collection($prompts ?? $this->recordedPrompts[$agent] ?? []))->contains(fn ($prompt) => $callback($prompt)),
-            $message ?? 'An expected prompt was not received.'
-        );
-
-        return $this;
-    }
-
-    /**
-     * Assert that a certain number of prompts were received.
-     */
-    public function assertAgentWasPromptedTimes(string $agent, int $times = 1): self
-    {
-        $count = count($this->recordedPrompts[$agent] ?? []);
-
-        PHPUnit::assertSame(
-            $times, $count,
-            sprintf(
-                "Received {$count} %s instead of {$times} %s.",
-                Str::plural('prompt', $count),
-                Str::plural('prompt', $times),
-            ),
-        );
-
-        return $this;
-    }
-
-    /**
-     * Assert that a prompt was received matching a given truth test.
-     */
-    public function assertAgentWasQueued(string $agent, Closure|string $callback): self
-    {
-        return $this->assertAgentWasPrompted(
-            $agent,
-            $callback,
-            $this->recordedQueuedPrompts[$agent] ?? [],
-            'An expected queued prompt was not received.'
-        );
-    }
-
-    /**
-     * Assert that a prompt was not received matching a given truth test.
-     */
-    public function assertAgentNotPrompted(
-        string $agent,
-        Closure|string $callback,
-        ?array $prompts = null,
-        ?string $message = null): self
-    {
-        $callback = is_string($callback)
-            ? fn ($prompt): bool => $prompt->prompt === $callback
-            : $callback;
-
-        PHPUnit::assertTrue(
-            (new Collection($prompts ?? $this->recordedPrompts[$agent] ?? []))->doesntContain(fn ($prompt) => $callback($prompt)),
-            $message ?? 'An unexpected prompt was received.'
-        );
-
-        return $this;
-    }
-
-    /**
-     * Assert that a queued prompt was not received matching a given truth test.
-     */
-    public function assertAgentNotQueued(string $agent, Closure|string $callback): self
-    {
-        return $this->assertAgentNotPrompted(
-            $agent,
-            $callback,
-            $this->recordedQueuedPrompts[$agent] ?? [],
-            'An unexpected queued prompt was received.'
-        );
-    }
-
-    /**
-     * Assert that no prompts were received.
-     */
-    public function assertAgentNeverPrompted(string $agent): self
-    {
-        PHPUnit::assertEmpty(
-            $this->recordedPrompts[$agent] ?? [],
-            'An unexpected prompt was received.'
-        );
-
-        return $this;
-    }
-
-    /**
-     * Assert that no queued prompts were received.
-     */
-    public function assertAgentNeverQueued(string $agent): self
-    {
-        PHPUnit::assertEmpty(
-            $this->recordedQueuedPrompts[$agent] ?? [],
-            'An unexpected queued prompt was received.'
-        );
 
         return $this;
     }

@@ -35,30 +35,6 @@ class Reranking
     }
 
     /**
-     * Assert that a reranking was performed matching a given truth test.
-     */
-    public static function assertReranked(Closure $callback): void
-    {
-        Ai::assertReranked($callback);
-    }
-
-    /**
-     * Assert that a reranking was not performed matching a given truth test.
-     */
-    public static function assertNotReranked(Closure $callback): void
-    {
-        Ai::assertNotReranked($callback);
-    }
-
-    /**
-     * Assert that no rerankings were performed.
-     */
-    public static function assertNothingReranked(): void
-    {
-        Ai::assertNothingReranked();
-    }
-
-    /**
      * Determine if reranking is faked.
      */
     public static function isFaked(): bool

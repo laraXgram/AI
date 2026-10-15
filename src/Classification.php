@@ -33,30 +33,6 @@ class Classification
     }
 
     /**
-     * Assert that a classification was performed matching a given truth test.
-     */
-    public static function assertClassified(Closure $callback): void
-    {
-        Ai::assertClassified($callback);
-    }
-
-    /**
-     * Assert that a classification was not performed matching a given truth test.
-     */
-    public static function assertNotClassified(Closure $callback): void
-    {
-        Ai::assertNotClassified($callback);
-    }
-
-    /**
-     * Assert that no classifications were performed.
-     */
-    public static function assertNothingClassified(): void
-    {
-        Ai::assertNothingClassified();
-    }
-
-    /**
      * Determine if classification is faked.
      */
     public static function isFaked(): bool

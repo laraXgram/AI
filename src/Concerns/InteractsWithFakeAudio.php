@@ -7,7 +7,6 @@ use LaraGram\Support\Collection;
 use LaraGram\Ai\Gateway\FakeAudioGateway;
 use LaraGram\Ai\Prompts\AudioPrompt;
 use LaraGram\Ai\Prompts\QueuedAudioPrompt;
-use PHPUnit\Framework\Assert as PHPUnit;
 
 trait InteractsWithFakeAudio
 {
@@ -44,84 +43,6 @@ trait InteractsWithFakeAudio
         } else {
             $this->recordedAudioGenerations[] = $prompt;
         }
-
-        return $this;
-    }
-
-    /**
-     * Assert that audio was generated matching a given truth test.
-     */
-    public function assertAudioGenerated(Closure $callback): self
-    {
-        PHPUnit::assertTrue(
-            (new Collection($this->recordedAudioGenerations))->contains(fn (AudioPrompt $prompt) => $callback($prompt)),
-            'An expected audio generation was not recorded.'
-        );
-
-        return $this;
-    }
-
-    /**
-     * Assert that audio was not generated matching a given truth test.
-     */
-    public function assertAudioNotGenerated(Closure $callback): self
-    {
-        PHPUnit::assertTrue(
-            (new Collection($this->recordedAudioGenerations))->doesntContain(fn (AudioPrompt $prompt) => $callback($prompt)),
-            'An unexpected audio generation was recorded.'
-        );
-
-        return $this;
-    }
-
-    /**
-     * Assert that no audio was generated.
-     */
-    public function assertNoAudioGenerated(): self
-    {
-        PHPUnit::assertEmpty(
-            $this->recordedAudioGenerations,
-            'Unexpected audio generations were recorded.'
-        );
-
-        return $this;
-    }
-
-    /**
-     * Assert that a queued audio generation was recorded matching a given truth test.
-     */
-    public function assertAudioQueued(Closure $callback): self
-    {
-        PHPUnit::assertTrue(
-            (new Collection($this->recordedQueuedAudioGenerations))->contains(fn (QueuedAudioPrompt $prompt) => $callback($prompt)),
-            'An expected queued audio generation was not recorded.'
-        );
-
-        return $this;
-    }
-
-    /**
-     * Assert that a queued audio generation was not recorded matching a given truth test.
-     */
-    public function assertAudioNotQueued(Closure $callback): self
-    {
-        PHPUnit::assertTrue(
-            (new Collection($this->recordedQueuedAudioGenerations))->doesntContain(fn (QueuedAudioPrompt $prompt) => $callback($prompt)),
-            'An unexpected queued audio generation was recorded.'
-        );
-
-        return $this;
-    }
-
-    /**
-     * Assert that no queued audio generations were recorded.
-     */
-    public function assertNoAudioQueued(): self
-    {
-        PHPUnit::assertEmpty(
-            $this->recordedQueuedAudioGenerations,
-            'Unexpected queued audio generations were recorded.'
-        );
 
         return $this;
     }

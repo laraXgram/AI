@@ -557,62 +557,6 @@ trait Promptable
     }
 
     /**
-     * Assert that a prompt was received matching a given truth test.
-     */
-    public static function assertPrompted(Closure|string $callback): void
-    {
-        Ai::assertAgentWasPrompted(static::class, $callback);
-    }
-
-    /**
-     * Assert that a certain number of prompts were received.
-     */
-    public static function assertPromptedTimes(int $times = 1): void
-    {
-        Ai::assertAgentWasPromptedTimes(static::class, $times);
-    }
-
-    /**
-     * Assert that a prompt was not received matching a given truth test.
-     */
-    public static function assertNotPrompted(Closure|string $callback): void
-    {
-        Ai::assertAgentNotPrompted(static::class, $callback);
-    }
-
-    /**
-     * Assert that no prompts were received.
-     */
-    public static function assertNeverPrompted(): void
-    {
-        Ai::assertAgentNeverPrompted(static::class);
-    }
-
-    /**
-     * Assert that a queued prompt was received matching a given truth test.
-     */
-    public static function assertQueued(Closure|string $callback): void
-    {
-        Ai::assertAgentWasQueued(static::class, $callback);
-    }
-
-    /**
-     * Assert that a queued prompt was not received matching a given truth test.
-     */
-    public static function assertNotQueued(Closure|string $callback): void
-    {
-        Ai::assertAgentNotQueued(static::class, $callback);
-    }
-
-    /**
-     * Assert that no queued prompts were received.
-     */
-    public static function assertNeverQueued(): void
-    {
-        Ai::assertAgentNeverQueued(static::class);
-    }
-
-    /**
      * Determine if the agent is currently faked.
      */
     public static function isFaked(): bool

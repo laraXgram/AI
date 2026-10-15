@@ -61,54 +61,6 @@ class Stores
     }
 
     /**
-     * Assert that a vector store was created by name.
-     */
-    public static function assertCreated(Closure|string $callback): void
-    {
-        Ai::assertStoreCreated($callback);
-    }
-
-    /**
-     * Assert that a vector store was not created.
-     */
-    public static function assertNotCreated(Closure|string $callback): void
-    {
-        Ai::assertStoreNotCreated($callback);
-    }
-
-    /**
-     * Assert that no vector stores were created.
-     */
-    public static function assertNothingCreated(): void
-    {
-        Ai::assertNoStoresCreated();
-    }
-
-    /**
-     * Assert that a vector store was deleted.
-     */
-    public static function assertDeleted(Closure|string $callback): void
-    {
-        Ai::assertStoreDeleted($callback);
-    }
-
-    /**
-     * Assert that a vector store was not deleted.
-     */
-    public static function assertNotDeleted(Closure|string $callback): void
-    {
-        Ai::assertStoreNotDeleted($callback);
-    }
-
-    /**
-     * Assert that no vector stores were deleted.
-     */
-    public static function assertNothingDeleted(): void
-    {
-        Ai::assertNoStoresDeleted();
-    }
-
-    /**
      * Determine if store operations are faked.
      */
     public static function isFaked(): bool

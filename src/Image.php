@@ -28,54 +28,6 @@ class Image
     }
 
     /**
-     * Assert that an image was generated matching a given truth test.
-     */
-    public static function assertGenerated(Closure $callback): void
-    {
-        Ai::assertImageGenerated($callback);
-    }
-
-    /**
-     * Assert that an image was not generated matching a given truth test.
-     */
-    public static function assertNotGenerated(Closure $callback): void
-    {
-        Ai::assertImageNotGenerated($callback);
-    }
-
-    /**
-     * Assert that no images were generated.
-     */
-    public static function assertNothingGenerated(): void
-    {
-        Ai::assertNoImagesGenerated();
-    }
-
-    /**
-     * Assert that a queued image generation was recorded matching a given truth test.
-     */
-    public static function assertQueued(Closure $callback): void
-    {
-        Ai::assertImageQueued($callback);
-    }
-
-    /**
-     * Assert that a queued image generation was not recorded matching a given truth test.
-     */
-    public static function assertNotQueued(Closure $callback): void
-    {
-        Ai::assertImageNotQueued($callback);
-    }
-
-    /**
-     * Assert that no queued image generations were recorded.
-     */
-    public static function assertNothingQueued(): void
-    {
-        Ai::assertNoImagesQueued();
-    }
-
-    /**
      * Determine if image generation is faked.
      */
     public static function isFaked(): bool

@@ -6,7 +6,6 @@ use Closure;
 use LaraGram\Support\Collection;
 use LaraGram\Ai\Contracts\Files\StorableFile;
 use LaraGram\Ai\Gateway\FakeFileGateway;
-use PHPUnit\Framework\Assert as PHPUnit;
 
 trait InteractsWithFakeFiles
 {
@@ -51,94 +50,6 @@ trait InteractsWithFakeFiles
     public function recordFileDeletion(string $fileId): self
     {
         $this->recordedFileDeletions[] = $fileId;
-
-        return $this;
-    }
-
-    /**
-     * Assert that a file was uploaded matching a given truth test.
-     */
-    public function assertFileUploaded(Closure $callback): self
-    {
-        PHPUnit::assertTrue(
-            (new Collection($this->recordedFileUploads))->contains(fn (array $upload) => $callback($upload['file'])),
-            'An expected file upload was not recorded.'
-        );
-
-        return $this;
-    }
-
-    /**
-     * Assert that a file was not uploaded matching a given truth test.
-     */
-    public function assertFileNotUploaded(Closure $callback): self
-    {
-        PHPUnit::assertTrue(
-            (new Collection($this->recordedFileUploads))->doesntContain(fn (array $upload) => $callback($upload['file'])),
-            'An unexpected file upload was recorded.'
-        );
-
-        return $this;
-    }
-
-    /**
-     * Assert that no files were uploaded.
-     */
-    public function assertNoFilesUploaded(): self
-    {
-        PHPUnit::assertEmpty(
-            $this->recordedFileUploads,
-            'Unexpected file uploads were recorded.'
-        );
-
-        return $this;
-    }
-
-    /**
-     * Assert that a file was deleted matching a given truth test.
-     */
-    public function assertFileDeleted(Closure|string $callback): self
-    {
-        if (is_string($callback)) {
-            $fileId = $callback;
-            $callback = fn ($id): bool => $id === $fileId;
-        }
-
-        PHPUnit::assertTrue(
-            (new Collection($this->recordedFileDeletions))->contains(fn (string $id) => $callback($id)),
-            'An expected file deletion was not recorded.'
-        );
-
-        return $this;
-    }
-
-    /**
-     * Assert that a file was not deleted matching a given truth test.
-     */
-    public function assertFileNotDeleted(Closure|string $callback): self
-    {
-        if (is_string($callback)) {
-            $fileId = $callback;
-            $callback = fn ($id): bool => $id === $fileId;
-        }
-
-        PHPUnit::assertTrue(
-            (new Collection($this->recordedFileDeletions))->doesntContain(fn (string $id) => $callback($id)),
-            'An unexpected file deletion was recorded.'
-        );
-
-        return $this;
-    }
-
-    /**
-     * Assert that no files were deleted.
-     */
-    public function assertNoFilesDeleted(): self
-    {
-        PHPUnit::assertEmpty(
-            $this->recordedFileDeletions,
-            'Unexpected file deletions were recorded.'
-        );
 
         return $this;
     }
