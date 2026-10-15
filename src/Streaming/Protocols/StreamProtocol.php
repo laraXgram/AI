@@ -5,7 +5,7 @@ namespace LaraGram\Ai\Streaming\Protocols;
 use Generator;
 use LaraGram\Ai\Exceptions\StreamErrorException;
 use LaraGram\Ai\Responses\StreamableAgentResponse;
-use LaraGram\Http\BaseResponse;
+use LaraGram\Http\BaseResponse as Response;
 use Throwable;
 
 abstract class StreamProtocol

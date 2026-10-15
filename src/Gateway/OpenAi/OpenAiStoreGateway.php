@@ -119,6 +119,6 @@ class OpenAiStoreGateway implements StoreGateway
      */
     protected function intervalToDays(DateInterval $interval): int
     {
-        return max(1, (int) Carbon::now()->diff(Carbon::now()->add($interval))->days);
+        return max(1, (int) Tempora::now()->diff(Tempora::now()->add($interval))->days);
     }
 }

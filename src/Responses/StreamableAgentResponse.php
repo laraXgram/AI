@@ -19,7 +19,7 @@ use LaraGram\Ai\Streaming\Events\TextDelta;
 use LaraGram\Ai\Streaming\Protocols\AgentUserInteractionProtocol;
 use LaraGram\Ai\Streaming\Protocols\StreamProtocol;
 use LaraGram\Ai\Streaming\Protocols\VercelDataProtocol;
-use LaraGram\Http\BaseResponse;
+use LaraGram\Http\BaseResponse as Response;
 use Throwable;
 use Traversable;
 

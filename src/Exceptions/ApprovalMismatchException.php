@@ -5,7 +5,7 @@ namespace LaraGram\Ai\Exceptions;
 use LaraGram\Http\Request;
 use LaraGram\Support\Collection;
 use LaraGram\Ai\Approvals\PendingApproval;
-use LaraGram\Http\BaseResponse;
+use LaraGram\Http\BaseResponse as Response;
 
 class ApprovalMismatchException extends AiException
 {
