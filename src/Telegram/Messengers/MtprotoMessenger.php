@@ -37,6 +37,12 @@ class MtprotoMessenger extends Messenger
         $client = Container::getInstance()->make('mtproto.manager')->client($this->chat->session ?? 'default');
 
         $peer = $parameters['chat_id'] ?? $this->chat->id;
+
+        foreach (['text', 'caption'] as $key) {
+            if (isset($parameters[$key]) && strtolower((string) ($parameters['parse_mode'] ?? '')) === 'html') {
+                $parameters[$key] = $this->normalizeHtml((string) $parameters[$key]);
+            }
+        }
         $common = $this->commonParameters($parameters);
         $caption = $parameters['caption'] ?? null;
 
@@ -112,7 +118,9 @@ class MtprotoMessenger extends Messenger
     protected function commonParameters(array $parameters): array
     {
         return array_filter([
-            'reply_to' => $parameters['reply_parameters']['message_id'] ?? null,
+            'reply_to' => isset($parameters['reply_parameters']['message_id'])
+                ? ['_' => 'inputReplyToMessage', 'reply_to_msg_id' => (int) $parameters['reply_parameters']['message_id']]
+                : null,
             'reply_markup' => $parameters['reply_markup'] ?? null,
             'silent' => $parameters['disable_notification'] ?? null,
         ], fn ($value) => $value !== null);
@@ -129,6 +137,16 @@ class MtprotoMessenger extends Messenger
         $mode = $parameters['parse_mode'] ?? null;
 
         return $mode ? ['parse_mode' => strtolower($mode) === 'html' ? 'html' : 'markdown'] : [];
+    }
+
+    /**
+     * Rewrite Bot API code blocks into the form the MTProto entity parser reads.
+     */
+    protected function normalizeHtml(string $html): string
+    {
+        $html = preg_replace('/<pre><code class="language-([^"]+)">(.*?)<\/code><\/pre>/s', '<pre language="$1">$2</pre>', $html);
+
+        return preg_replace('/<pre><code>(.*?)<\/code><\/pre>/s', '<pre>$1</pre>', $html);
     }
 
     /**

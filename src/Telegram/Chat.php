@@ -237,12 +237,26 @@ class Chat
             return null;
         }
 
+        $data = $request->toArray();
+        $peer = $data['message']['peer_id'] ?? $data['peer_id'] ?? $data['peer'] ?? [];
+
+        if (is_object($peer) && method_exists($peer, 'toArray')) {
+            $peer = $peer->toArray();
+        }
+
+        $type = match (true) {
+            isset($peer['channel_id']) => 'supergroup',
+            isset($peer['chat_id']) => 'group',
+            default => 'private',
+        };
+
         return new static(
             $chatId,
-            $chatId > 0 ? 'private' : 'group',
+            $type,
             replyTo: $request->messageId(),
             session: $request->session(),
-            callbackQueryId: isset($request->toArray()['query_id']) ? (string) $request->toArray()['query_id'] : null,
+            callbackQueryId: isset($data['query_id']) ? (string) $data['query_id'] : null,
+            userId: $data['message']['from_id']['user_id'] ?? $data['user_id'] ?? ($type === 'private' ? $chatId : null),
         );
     }
 }
