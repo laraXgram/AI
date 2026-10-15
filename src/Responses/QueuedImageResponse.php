@@ -7,9 +7,9 @@ use LaraGram\Foundation\Bus\PendingDispatch;
 /**
  * @mixin PendingDispatch
  */
-class QueuedImageResponse
+class QueuedImageResponse implements \LaraGram\Contracts\Support\Responsable
 {
-    use Concerns\HasQueuedResponseCallbacks;
+    use Concerns\HasQueuedResponseCallbacks, Concerns\SendsToTelegramWhenReady;
 
     public function __construct(public PendingDispatch $dispatchable) {}
 
@@ -19,5 +19,13 @@ class QueuedImageResponse
     public function __call(string $method, array $arguments)
     {
         return $this->dispatchable->{$method}(...$arguments);
+    }
+
+    /**
+     * Get the chat action shown while the job is queued.
+     */
+    protected function telegramChatAction(): string
+    {
+        return 'upload_photo';
     }
 }

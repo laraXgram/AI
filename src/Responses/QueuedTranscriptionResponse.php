@@ -7,9 +7,9 @@ use LaraGram\Foundation\Bus\PendingDispatch;
 /**
  * @mixin PendingDispatch
  */
-class QueuedTranscriptionResponse
+class QueuedTranscriptionResponse implements \LaraGram\Contracts\Support\Responsable
 {
-    use Concerns\HasQueuedResponseCallbacks;
+    use Concerns\HasQueuedResponseCallbacks, Concerns\SendsToTelegramWhenReady;
 
     public function __construct(public PendingDispatch $dispatchable) {}
 

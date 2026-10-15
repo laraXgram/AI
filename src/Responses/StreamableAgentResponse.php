@@ -19,6 +19,9 @@ use LaraGram\Ai\Streaming\Events\TextDelta;
 use LaraGram\Ai\Streaming\Protocols\AgentUserInteractionProtocol;
 use LaraGram\Ai\Streaming\Protocols\StreamProtocol;
 use LaraGram\Ai\Streaming\Protocols\VercelDataProtocol;
+use LaraGram\Ai\Telegram\Chat;
+use LaraGram\Ai\Telegram\StreamDelivery;
+use LaraGram\Request\Response as BotResponse;
 use LaraGram\Http\BaseResponse as Response;
 use Throwable;
 use Traversable;
@@ -175,8 +178,14 @@ class StreamableAgentResponse implements IteratorAggregate, Responsable
      *
      * @param  Request  $request
      */
-    public function toResponse($request): Response
+    public function toResponse($request): mixed
     {
+        if ($chat = Chat::fromRequest($request)) {
+            (new StreamDelivery($this, $chat))->send();
+
+            return new BotResponse('');
+        }
+
         if ($this->protocol instanceof StreamProtocol) {
             return $this->protocol->response($this);
         }
@@ -193,6 +202,36 @@ class StreamableAgentResponse implements IteratorAggregate, Responsable
             'Content-Type' => 'text/event-stream',
             'X-Accel-Buffering' => 'no',
         ]);
+    }
+
+    /**
+     * Stream the response to the given chat as it is generated.
+     *
+     * The chat may be an identifier, a Telegram chat or user object, a bot or MTProto
+     * update, or a chat instance. The connection names the bot connection, or an
+     * MTProto session as "mtproto:name".
+     *
+     * @return $this
+     */
+    public function sendTo(mixed $chat, mixed $connection = null): static
+    {
+        (new StreamDelivery($this, Chat::make($chat, $connection)))->send();
+
+        return $this;
+    }
+
+    /**
+     * Stream the response to the chat of the update currently being handled.
+     *
+     * @return $this
+     */
+    public function reply(): static
+    {
+        $chat = Chat::current() ?? throw new \LogicException('There is no Telegram update to reply to.');
+
+        (new StreamDelivery($this, $chat))->send();
+
+        return $this;
     }
 
     /**

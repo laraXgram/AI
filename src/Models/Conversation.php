@@ -68,9 +68,18 @@ class Conversation extends Model
      */
     public static function participantType(object $participant): string
     {
-        return $participant instanceof Model
-            ? $participant->getMorphClass()
-            : $participant::class;
+        if ($participant instanceof Model) {
+            return $participant->getMorphClass();
+        }
+
+        // Telegram users and chats from an update, such as user() and chat()...
+        if ($participant instanceof \stdClass || str_starts_with($participant::class, 'LaraGram\\Laraquest\\')) {
+            return isset($participant->type) && in_array($participant->type, ['private', 'group', 'supergroup', 'channel'], true)
+                ? 'telegram:chat'
+                : 'telegram:user';
+        }
+
+        return $participant::class;
     }
 
     /**

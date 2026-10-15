@@ -6,6 +6,8 @@ use LaraGram\Support\Collection;
 use LaraGram\Ai\Approvals\PendingApproval;
 use LaraGram\Ai\Responses\Data\Meta;
 use LaraGram\Ai\Responses\Data\TextUsage;
+use LaraGram\Ai\Telegram\Approvals;
+use LaraGram\Ai\Telegram\Chat;
 
 class AgentResponse extends TextResponse
 {
@@ -77,5 +79,19 @@ class AgentResponse extends TextResponse
         $callback($this);
 
         return $this;
+    }
+
+    /**
+     * Deliver the response to the given chat, asking for any pending tool approvals.
+     */
+    protected function deliverTo(Chat $chat): void
+    {
+        if ($this->hasPendingApprovals()) {
+            Approvals::request($this, $chat);
+
+            return;
+        }
+
+        parent::deliverTo($chat);
     }
 }

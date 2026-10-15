@@ -8,9 +8,9 @@ use LaraGram\JsonSchema\Types\Type;
 interface HasStructuredOutput
 {
     /**
-     * Get the agent's structured output schema definition.
+     * Get the agent's structured output schema definition, or the Telegram output it produces.
      *
-     * @return array<string, Type>
+     * @return array<string, Type>|\LaraGram\Ai\Contracts\TelegramOutput
      */
-    public function schema(JsonSchema $schema): array;
+    public function schema(JsonSchema $schema): array|TelegramOutput;
 }

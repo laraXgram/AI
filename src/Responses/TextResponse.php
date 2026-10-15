@@ -8,15 +8,20 @@ use LaraGram\Ai\Messages\AssistantMessage;
 use LaraGram\Ai\Messages\Message;
 use LaraGram\Ai\Messages\ToolResultMessage;
 use LaraGram\Ai\Responses\Concerns\HasRawResponse;
+use LaraGram\Ai\Responses\Concerns\SendsToTelegram;
+use LaraGram\Ai\Telegram\Chat;
+use LaraGram\Ai\Telegram\InlineAnswer;
+use LaraGram\Ai\Telegram\Sender;
+use LaraGram\Contracts\Support\Responsable;
 use LaraGram\Ai\Responses\Data\Meta;
 use LaraGram\Ai\Responses\Data\Step;
 use LaraGram\Ai\Responses\Data\TextUsage;
 use LaraGram\Ai\Responses\Data\ToolCall;
 use LaraGram\Ai\Responses\Data\ToolResult;
 
-class TextResponse implements \Stringable
+class TextResponse implements Responsable, \Stringable
 {
-    use HasRawResponse;
+    use HasRawResponse, SendsToTelegram;
 
     /** @var Collection<int, Message> */
     public Collection $messages;
@@ -139,5 +144,23 @@ class TextResponse implements \Stringable
     public function __toString(): string
     {
         return $this->text;
+    }
+
+    /**
+     * Deliver the response to the given chat.
+     */
+    protected function deliverTo(Chat $chat): void
+    {
+        $sender = Sender::to($chat);
+
+        $sender->answerCallback();
+
+        if ($chat->inlineQueryId !== null) {
+            InlineAnswer::text($chat, $this->text);
+
+            return;
+        }
+
+        $sender->markdown($this->text);
     }
 }

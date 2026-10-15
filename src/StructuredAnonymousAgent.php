@@ -5,6 +5,7 @@ namespace LaraGram\Ai;
 use Closure;
 use LaraGram\Contracts\JsonSchema\JsonSchema;
 use LaraGram\Ai\Contracts\HasStructuredOutput;
+use LaraGram\Ai\Contracts\TelegramOutput;
 use LaraGram\Support\SerializableClosure\SerializableClosure;
 
 class StructuredAnonymousAgent extends AnonymousAgent implements HasStructuredOutput
@@ -18,13 +19,15 @@ class StructuredAnonymousAgent extends AnonymousAgent implements HasStructuredOu
         public string $instructions,
         public iterable $messages,
         public iterable $tools,
-        ?Closure $schema = null,
+        Closure|TelegramOutput|null $schema = null,
     ) {
-        $this->schema = $schema instanceof Closure ? new SerializableClosure($schema) : null;
+        $this->schema = $schema instanceof Closure ? new SerializableClosure($schema) : $schema;
     }
 
-    public function schema(JsonSchema $schema): array
+    public function schema(JsonSchema $schema): array|TelegramOutput
     {
-        return call_user_func($this->schema, $schema);
+        return $this->schema instanceof TelegramOutput
+            ? $this->schema
+            : call_user_func($this->schema, $schema);
     }
 }

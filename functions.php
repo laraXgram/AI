@@ -14,6 +14,7 @@ use LaraGram\JsonSchema\Types\Type;
 use LaraGram\Pipeline\Pipeline;
 use LaraGram\Support\Str;
 use LaraGram\Ai\Contracts\Agent;
+use LaraGram\Ai\Contracts\TelegramOutput;
 
 /**
  * Get an ad-hoc agent instance.
@@ -22,7 +23,7 @@ function agent(
     string $instructions = '',
     iterable $messages = [],
     iterable $tools = [],
-    ?Closure $schema = null,
+    Closure|TelegramOutput|null $schema = null,
 ): Agent {
     return $schema
         ? new StructuredAnonymousAgent($instructions, $messages, $tools, $schema)

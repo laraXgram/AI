@@ -21,6 +21,11 @@ use LaraGram\Ai\Enums\Lab;
 use LaraGram\Ai\Responses\AudioResponse;
 use LaraGram\Ai\Responses\Data\BooleanAnswer;
 use LaraGram\Ai\Storage\DatabaseConversationStore;
+use LaraGram\Ai\Contracts\Agent;
+use LaraGram\Ai\Events\ToolApprovalRequested;
+use LaraGram\Ai\Telegram\AgentListen;
+use LaraGram\Ai\Telegram\Approvals;
+use LaraGram\Listening\Listener;
 
 class AiServiceProvider extends ServiceProvider
 {
@@ -50,6 +55,8 @@ class AiServiceProvider extends ServiceProvider
         }
 
         $this->registerStateFlushing();
+
+        $this->registerTelegramFeatures();
 
         // Embeddings macro...
         Stringable::macro('toEmbeddings', function (
@@ -206,6 +213,24 @@ class AiServiceProvider extends ServiceProvider
                 fn ($result): mixed => $this->values()[$result->index]
             );
         });
+    }
+
+    /**
+     * Register the listens and bindings that connect agents to Telegram.
+     */
+    protected function registerTelegramFeatures(): void
+    {
+        Event::listen(ToolApprovalRequested::class, [Approvals::class, 'remember']);
+
+        if (! config('ai.telegram.listens', true) || ! $this->app->bound('listener')) {
+            return;
+        }
+
+        Listener::macro('agent', function (string|Agent $agent, ?string $pattern = null) {
+            return AgentListen::register($this, $agent, $pattern);
+        });
+
+        $this->loadListensFrom(__DIR__.'/../listens/telegram.php');
     }
 
     /**

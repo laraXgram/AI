@@ -42,6 +42,43 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Telegram
+    |--------------------------------------------------------------------------
+    |
+    | Responses returned from a bot or MTProto listen are sent to the chat of
+    | the update. Text answers are written in Markdown by the models and are
+    | converted to Telegram formatting: "html" sends regular messages, "rich"
+    | sends rich messages, and "auto" picks a rich message only when the
+    | answer has headings, tables or formulas, or is too long for one message.
+    |
+    */
+
+    'telegram' => [
+        'format' => env('AI_TELEGRAM_FORMAT', 'auto'),
+
+        'listens' => true,
+
+        'failure_message' => null,
+
+        'streaming' => [
+            'drafts' => true,
+            'can_stop' => true,
+            'interval' => null,
+        ],
+
+        'approvals' => [
+            'ttl' => 86400,
+            'title' => 'Approval needed',
+            'rejection' => 'The user rejected this action.',
+        ],
+
+        'usage' => [
+            'store' => env('AI_USAGE_STORE'),
+        ],
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | AI Providers
     |--------------------------------------------------------------------------
     |

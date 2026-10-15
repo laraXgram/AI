@@ -3,15 +3,22 @@
 namespace LaraGram\Ai\Responses;
 
 use Countable;
+use LaraGram\Ai\Responses\Concerns\SendsToTelegram;
+use LaraGram\Ai\Telegram\Chat;
+use LaraGram\Ai\Telegram\Sender;
+use LaraGram\Ai\Telegram\Upload;
 use LaraGram\Contracts\Support\Htmlable;
+use LaraGram\Contracts\Support\Responsable;
 use LaraGram\Support\Collection;
 use LaraGram\Ai\Responses\Data\GeneratedImage;
 use LaraGram\Ai\Responses\Data\ImageUsage;
 use LaraGram\Ai\Responses\Data\Meta;
 use RuntimeException;
 
-class ImageResponse implements \Stringable, Countable, Htmlable
+class ImageResponse implements Responsable, \Stringable, Countable, Htmlable
 {
+    use SendsToTelegram;
+
     /**
      * @param  Collection<int, GeneratedImage>  $images
      */
@@ -94,5 +101,40 @@ class ImageResponse implements \Stringable, Countable, Htmlable
     public function __toString(): string
     {
         return (string) $this->firstImage();
+    }
+
+    /**
+     * Send the images to the given chat, as a photo or an album.
+     */
+    protected function deliverTo(Chat $chat): void
+    {
+        $sender = Sender::to($chat);
+
+        $sender->answerCallback();
+
+        $uploads = $this->images->values()->map(fn (GeneratedImage $image, int $index) => new Upload(
+            $image->content(),
+            'image-'.($index + 1).'.'.(explode('/', $image->mime())[1] ?? 'png'),
+            $image->mime(),
+        ));
+
+        if ($uploads->count() === 1) {
+            $sender->call('sendPhoto', [...$chat->parameters(), 'photo' => $uploads->first()]);
+
+            return;
+        }
+
+        foreach ($uploads->chunk(10) as $index => $album) {
+            if ($album->count() === 1) {
+                $sender->call('sendPhoto', [...$chat->parameters($index === 0), 'photo' => $album->first()]);
+
+                continue;
+            }
+
+            $sender->call('sendMediaGroup', [
+                ...$chat->parameters($index === 0),
+                'media' => $album->values()->map(fn (Upload $upload) => ['type' => 'photo', 'media' => $upload])->all(),
+            ]);
+        }
     }
 }

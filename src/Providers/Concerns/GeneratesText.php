@@ -11,6 +11,7 @@ use LaraGram\Ai\Contracts\Conversational;
 use LaraGram\Ai\Contracts\ConversationStore;
 use LaraGram\Ai\Contracts\HasSkills;
 use LaraGram\Ai\Contracts\HasStructuredOutput;
+use LaraGram\Ai\Contracts\TelegramOutput;
 use LaraGram\Ai\Contracts\HasTools;
 use LaraGram\Ai\Contracts\Tool;
 use LaraGram\Ai\Events\AgentFailed;
@@ -70,6 +71,10 @@ trait GeneratesText
 
                     $schema = $agent instanceof HasStructuredOutput ? $agent->schema(new JsonSchemaTypeFactory) : null;
 
+                    [$schema, $output] = $schema instanceof TelegramOutput
+                        ? [$schema->schema(new JsonSchemaTypeFactory), $schema]
+                        : [$schema, null];
+
                     $response = $this->textGenerationLoop()->generate(
                         $this,
                         $prompt->model,
@@ -90,6 +95,7 @@ trait GeneratesText
 
                     $agentResponse = $response instanceof StructuredTextResponse
                         ? (new StructuredAgentResponse($invocationId, $response->structured, $response->text, $response->usage, $response->meta))
+                            ->withTelegramOutput($output)
                             ->withMessages($response->messages)
                             ->withToolCallsAndResults($response->toolCalls, $response->toolResults)
                             ->withSteps($response->steps)
