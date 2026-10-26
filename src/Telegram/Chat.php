@@ -196,7 +196,7 @@ class Chat
         return new static(
             $chat->id,
             $chat->type ?? null,
-            replyTo: $request->callback_query ? null : ($message->message_id ?? null),
+            replyTo: isset($request->callback_query) ? null : ($message->message_id ?? null),
             threadId: ($message->is_topic_message ?? false) ? ($message->message_thread_id ?? null) : null,
             businessConnectionId: $message->business_connection_id ?? null,
             connection: $connection,
